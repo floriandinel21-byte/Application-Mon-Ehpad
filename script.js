@@ -1,0 +1,1 @@
+function login(){alert('Connexion réussie (mode démo)');}

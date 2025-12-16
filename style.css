@@ -1,0 +1,4 @@
+body{font-family:-apple-system,BlinkMacSystemFont;background:#0a4ea1;color:white;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
+.login{background:white;color:#0a4ea1;padding:30px;border-radius:12px;width:90%;max-width:350px;text-align:center}
+input,button{width:100%;padding:12px;margin-top:10px;border-radius:8px;border:1px solid #ccc}
+button{background:#0a4ea1;color:white;border:none;font-size:16px}
