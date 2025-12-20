@@ -12,3 +12,6 @@ Utilisation :
 
 Astuce :
 - Pour repartir à zéro : onglet Compte > Réinitialiser la démo.
+
+
+Mise à jour : calendrier en style iPhone (mois + sélection de jour + détails).

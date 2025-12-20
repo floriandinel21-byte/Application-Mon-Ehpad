@@ -340,3 +340,124 @@ textarea{min-height:92px;resize:vertical}
   font-size:13px;
   box-shadow: var(--shadow);
 }
+
+
+/* iOS calendar */
+.ioscal-wrap{
+  background: rgba(255,255,255,.03);
+  border:1px solid var(--line);
+  border-radius: 22px;
+  overflow:hidden;
+}
+.ioscal-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:14px 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+  border-bottom:1px solid var(--line);
+}
+.ioscal-title{
+  font-weight:900;
+  letter-spacing:.2px;
+}
+.ioscal-head .muted{margin:0}
+.ioscal-nav{
+  display:flex; gap:8px;
+}
+.ioscal-dow{
+  display:grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap:0;
+  padding:10px 12px 8px;
+  font-size:11px;
+  color: var(--muted);
+  background: rgba(255,255,255,.02);
+}
+.ioscal-grid{
+  display:grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding:10px 10px 12px;
+  gap:6px;
+  background: rgba(0,0,0,.12);
+}
+.ioscal-cell{
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  border:1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.02);
+  cursor:pointer;
+  user-select:none;
+}
+.ioscal-cell.off{
+  opacity:.35;
+  cursor:default;
+}
+.ioscal-cell .num{
+  font-weight:850;
+  font-size:12px;
+}
+.ioscal-cell.today{
+  background: rgba(79,140,255,.22);
+  border-color: rgba(79,140,255,.45);
+}
+.ioscal-cell.sel{
+  outline: 2px solid rgba(50,213,131,.65);
+  outline-offset: 0px;
+}
+.dots{
+  position:absolute;
+  bottom:8px;
+  display:flex;
+  gap:4px;
+  height:6px;
+  align-items:center;
+}
+.dot{
+  width:5px;height:5px;border-radius:999px;
+  background: rgba(255,255,255,.45);
+}
+.dot.me{ background: rgba(79,140,255,.95); }
+.dot.unit{ background: rgba(50,213,131,.95); }
+.ioscal-detail{
+  padding:12px;
+  background: rgba(255,255,255,.02);
+  border-top:1px solid var(--line);
+}
+.ioscal-detail h4{
+  margin:0 0 8px;
+  font-size:13px;
+  font-weight:900;
+}
+.detail-line{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+  padding:10px 10px;
+  border:1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.02);
+  border-radius: 16px;
+  margin-bottom:8px;
+}
+.detail-line .left{
+  display:flex; flex-direction:column; gap:4px;
+}
+.tag{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 9px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  font-size:11px;
+  color: var(--muted);
+  background: rgba(255,255,255,.02);
+  width:fit-content;
+}
+.tag.me{ border-color: rgba(79,140,255,.35); color:#cfe0ff; background: rgba(79,140,255,.10);}
+.tag.unit{ border-color: rgba(50,213,131,.35); color:#c8f6df; background: rgba(50,213,131,.10);}

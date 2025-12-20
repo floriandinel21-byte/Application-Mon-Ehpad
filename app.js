@@ -225,30 +225,17 @@ function isDirection(){ return state.session.role === "direction"; }
 function viewPlanningAgent(){
   const u = me();
   const unit = u.unit;
-  const weekDates = nextDays(7);
-  const my = state.shifts.filter(s => s.userId === u.id);
-  const unitShifts = state.shifts.filter(s => s.unit === unit);
-
+  // iOS-like month calendar
   return `
     <div class="carditem">
-      <h3>Ma semaine</h3>
+      <h3>Planning</h3>
       <div class="muted">Planning personnel + planning d’unité (${unit})</div>
       <div class="hr"></div>
-      <div class="week">
-        ${weekDates.map(d => {
-          const di = iso(d);
-          const ms = my.filter(s => s.date===di);
-          const us = unitShifts.filter(s => s.date===di);
-          return `
-            <div class="day">
-              <div class="d">${d.toLocaleDateString("fr-FR",{weekday:"short"})}</div>
-              <div class="n">${d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})}</div>
-              ${ms.map(s => `<div class="shift"><div class="t">${s.start}–${s.end}</div><div class="p">Moi • ${s.label}</div></div>`).join("") || `<div class="muted" style="margin-top:8px">—</div>`}
-              ${us.length ? `<div class="muted" style="margin-top:10px">Équipe: ${us.map(s => userName(s.userId)).join(", ")}</div>` : ``}
-            </div>
-          `;
-        }).join("")}
-      </div>
+      ${renderIOSCalendar({
+        mode: "agent",
+        unit,
+        meId: u.id
+      })}
     </div>
 
     <div class="carditem">
@@ -279,34 +266,25 @@ function viewPlanningAgent(){
   `;
 }
 
+
 function viewPlanningDirection(){
   const unit = "Unité A";
-  const weekDates = nextDays(7);
-  const unitShifts = state.shifts.filter(s => s.unit === unit);
-
   return `
     <div class="carditem">
       <h3>Planning global</h3>
       <div class="muted">Vue direction • ${unit}</div>
       <div class="hr"></div>
-      <div class="week">
-        ${weekDates.map(d => {
-          const di = iso(d);
-          const us = unitShifts.filter(s => s.date===di);
-          return `
-            <div class="day">
-              <div class="d">${d.toLocaleDateString("fr-FR",{weekday:"short"})}</div>
-              <div class="n">${d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})}</div>
-              ${us.map(s => `<div class="shift"><div class="t">${s.start}–${s.end}</div><div class="p">${userName(s.userId)} • ${s.label}</div></div>`).join("") || `<div class="muted" style="margin-top:8px">—</div>`}
-            </div>
-          `;
-        }).join("")}
-      </div>
+      ${renderIOSCalendar({
+        mode: "direction",
+        unit,
+        meId: state.session.userId
+      })}
       <div class="hr"></div>
       <div class="muted">Astuce : la mise à jour par glisser-déposer se ferait dans la vraie version (Firebase / serveur).</div>
     </div>
   `;
 }
+
 
 function viewSwapsAgent(){
   const u = me();
@@ -964,6 +942,8 @@ function attachHandlers(tabId){
     });
   }
 
+  bindIOSCalendar();
+
   // Update active tab style
   const tabs = document.querySelectorAll(".tabbar .tab");
   tabs.forEach(t => t.classList.toggle("active", t.getAttribute("data-tab") === currentTab));
@@ -1178,6 +1158,181 @@ function scrollChatBottom(){
   if(chat) chat.scrollIntoView({block:"end"});
 }
 
+
+function bindIOSCalendar(){
+  const wrap = document.querySelector("[data-ioscal='1']");
+  if(!wrap) return;
+
+  const prev = wrap.querySelector("[data-cal-prev]");
+  const next = wrap.querySelector("[data-cal-next]");
+  if(prev) prev.addEventListener("click", () => {
+    state.ui = state.ui || {};
+    const ym = state.ui.calendarYM || {y:new Date().getFullYear(), m:new Date().getMonth()};
+    let y = ym.y, m = ym.m - 1;
+    if(m < 0){ m = 11; y -= 1; }
+    state.ui.calendarYM = {y,m};
+    saveState();
+    renderTab(currentTab);
+  });
+
+  if(next) next.addEventListener("click", () => {
+    state.ui = state.ui || {};
+    const ym = state.ui.calendarYM || {y:new Date().getFullYear(), m:new Date().getMonth()};
+    let y = ym.y, m = ym.m + 1;
+    if(m > 11){ m = 0; y += 1; }
+    state.ui.calendarYM = {y,m};
+    saveState();
+    renderTab(currentTab);
+  });
+
+  wrap.querySelectorAll("[data-cal-date]").forEach(cell => {
+    const di = cell.getAttribute("data-cal-date");
+    if(cell.classList.contains("off")) return;
+    cell.addEventListener("click", () => {
+      state.ui = state.ui || {};
+      state.ui.calendarSelectedIso = di;
+      saveState();
+      // update selection UI without full rerender
+      wrap.querySelectorAll(".ioscal-cell").forEach(c => c.classList.toggle("sel", c.getAttribute("data-cal-date")===di));
+      const detail = document.getElementById("iosCalDetail");
+      const u = me();
+      const mode = (state.session.role === "direction") ? "direction" : "agent";
+      const unit = (mode==="direction") ? "Unité A" : (u?.unit || "Unité A");
+      const meId = (mode==="direction") ? state.session.userId : u.id;
+      detail.innerHTML = renderDayDetail(di, {mode, unit, meId});
+    });
+  });
+}
+
 // Boot
 render();
 saveState(); // ensure seed persists
+function monthLabel(year, monthIndex){
+  const d = new Date(year, monthIndex, 1);
+  return d.toLocaleDateString("fr-FR",{month:"long", year:"numeric"});
+}
+function startOfMonth(year, monthIndex){ return new Date(year, monthIndex, 1); }
+function endOfMonth(year, monthIndex){ return new Date(year, monthIndex+1, 0); }
+function sameDay(a,b){
+  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+}
+function renderIOSCalendar({mode, unit, meId}){
+  // Persist month selection in state (localStorage) for nicer UX
+  state.ui = state.ui || {};
+  const today = new Date();
+  const ym = state.ui.calendarYM || {y: today.getFullYear(), m: today.getMonth()};
+  const y = ym.y, m = ym.m;
+
+  const first = startOfMonth(y,m);
+  const last = endOfMonth(y,m);
+  // Convert Monday-first index: (Sun=0..Sat=6) => (Mon=0..Sun=6)
+  const dow = (first.getDay()+6)%7;
+  const daysInMonth = last.getDate();
+
+  // Build 6 weeks grid (42 cells)
+  const cells = [];
+  for(let i=0;i<42;i++){
+    const dayNum = i - dow + 1;
+    const d = new Date(y,m, dayNum);
+    const off = dayNum<1 || dayNum>daysInMonth;
+    cells.push({date:d, off});
+  }
+
+  const selIso = state.ui.calendarSelectedIso || iso(today);
+
+  return `
+    <div class="ioscal-wrap" data-ioscal="1">
+      <div class="ioscal-head">
+        <div>
+          <div class="ioscal-title">${capitalize(monthLabel(y,m))}</div>
+          <div class="muted">Style iPhone • cliquez un jour pour voir les détails</div>
+        </div>
+        <div class="ioscal-nav">
+          <button class="iconbtn" data-cal-prev aria-label="Mois précédent">${icons.calendar}</button>
+          <button class="iconbtn" data-cal-next aria-label="Mois suivant">${icons.calendar}</button>
+        </div>
+      </div>
+
+      <div class="ioscal-dow">
+        <div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div><div>D</div>
+      </div>
+
+      <div class="ioscal-grid">
+        ${cells.map(c=>{
+          const di = iso(c.date);
+          const isToday = sameDay(c.date, today);
+          const isSel = (di === selIso);
+          const myShifts = state.shifts.filter(s => s.userId===meId && s.date===di);
+          const unitShifts = state.shifts.filter(s => s.unit===unit && s.date===di);
+          const dots = [];
+          if(myShifts.length) dots.push(`<span class="dot me"></span>`);
+          if(unitShifts.length) dots.push(`<span class="dot unit"></span>`);
+          return `
+            <div class="ioscal-cell ${c.off?'off':''} ${isToday?'today':''} ${isSel?'sel':''}" data-cal-date="${di}">
+              <div class="num">${c.date.getDate()}</div>
+              ${dots.length ? `<div class="dots">${dots.join("")}</div>` : ``}
+            </div>
+          `;
+        }).join("")}
+      </div>
+
+      <div class="ioscal-detail" id="iosCalDetail">
+        ${renderDayDetail(selIso, {mode, unit, meId})}
+      </div>
+    </div>
+  `;
+}
+
+function renderDayDetail(dayIso, {mode, unit, meId}){
+  const d = new Date(dayIso+"T00:00:00");
+  const title = d.toLocaleDateString("fr-FR",{weekday:"long", day:"2-digit", month:"long"});
+  const my = state.shifts.filter(s => s.userId===meId && s.date===dayIso);
+  const unitShifts = state.shifts.filter(s => s.unit===unit && s.date===dayIso);
+
+  const lines = [];
+
+  if(mode === "agent"){
+    if(my.length){
+      my.forEach(s => lines.push(detailLine(`${s.start}–${s.end}`, `${s.label}`, "Moi", "me")));
+    } else {
+      lines.push(`<div class="muted">Aucun horaire personnel ce jour.</div>`);
+    }
+    if(unitShifts.length){
+      lines.push(`<div class="muted" style="margin:10px 0 6px">Équipe (${unit})</div>`);
+      unitShifts.forEach(s => {
+        const who = userName(s.userId);
+        const tag = (s.userId===meId) ? "Moi" : who;
+        const cls = (s.userId===meId) ? "me" : "unit";
+        lines.push(detailLine(`${s.start}–${s.end}`, `${s.label}`, tag, cls));
+      });
+    }
+  } else {
+    if(unitShifts.length){
+      unitShifts.forEach(s => {
+        lines.push(detailLine(`${s.start}–${s.end}`, `${s.label}`, userName(s.userId), "unit"));
+      });
+    } else {
+      lines.push(`<div class="muted">Aucun horaire dans l’unité ce jour.</div>`);
+    }
+  }
+
+  return `
+    <h4>${capitalize(title)}</h4>
+    ${lines.join("")}
+  `;
+}
+
+function detailLine(time, label, tagText, tagClass){
+  return `
+    <div class="detail-line">
+      <div class="left">
+        <div style="font-weight:900">${time}</div>
+        <div class="muted">${escapeHtml(label)}</div>
+      </div>
+      <span class="tag ${tagClass}">${escapeHtml(tagText)}</span>
+    </div>
+  `;
+}
+function capitalize(s){ return s ? (s.charAt(0).toUpperCase() + s.slice(1)) : s; }
+
+
