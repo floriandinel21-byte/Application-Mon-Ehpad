@@ -6,29 +6,15 @@
   --text:#ffffff;
   --muted:#9fb0d0;
 }
-
 *{box-sizing:border-box}
-
 body{
   margin:0;
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial;
   background:var(--bg);
   color:var(--text);
 }
-
-#app{
-  max-width:420px;
-  margin:auto;
-  padding-bottom:90px;
-}
-
-.top{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:16px;
-}
-
+#app{max-width:420px;margin:auto;padding-bottom:90px;}
+.top{display:flex;justify-content:space-between;align-items:center;padding:16px;}
 .badge{
   background:rgba(79,140,255,.15);
   border:1px solid rgba(79,140,255,.35);
@@ -37,7 +23,6 @@ body{
   border-radius:999px;
   font-size:12px;
 }
-
 .card{
   background:var(--card);
   border:1px solid var(--line);
@@ -45,14 +30,7 @@ body{
   padding:16px;
   margin:12px;
 }
-
-label{
-  display:block;
-  margin-top:10px;
-  font-size:13px;
-  color:var(--muted);
-}
-
+label{display:block;margin-top:10px;font-size:13px;color:var(--muted);}
 input,select{
   width:100%;
   padding:10px;
@@ -62,66 +40,29 @@ input,select{
   background:#0e1730;
   color:white;
 }
-
 button{
-  margin-top:14px;
-  width:100%;
-  padding:12px;
-  border-radius:14px;
-  border:none;
-  background:var(--blue);
-  color:white;
-  font-weight:700;
+  margin-top:14px;width:100%;padding:12px;border-radius:14px;
+  border:none;background:var(--blue);color:white;font-weight:700;
 }
-
-.result{
-  margin-top:10px;
-  font-size:13px;
-  color:#cfe0ff;
-}
-
+.result{margin-top:10px;font-size:13px;color:#cfe0ff;}
 .tabbar{
-  position:fixed;
-  bottom:0;
-  left:0;
-  right:0;
-  display:flex;
-  justify-content:space-around;
-  background:#0e1730;
-  border-top:1px solid var(--line);
+  position:fixed;bottom:0;left:0;right:0;
+  display:flex;justify-content:space-around;
+  background:#0e1730;border-top:1px solid var(--line);
   padding:10px 0;
 }
-
 .tabbar button{
-  background:none;
-  border:none;
-  color:var(--muted);
-  font-size:13px;
+  background:none;border:none;color:var(--muted);font-size:13px;
 }
-
-.tabbar button.active{
-  color:var(--blue);
-  font-weight:700;
-}
-
+.tabbar button.active{color:var(--blue);font-weight:700;}
 .calendar{
-  display:grid;
-  grid-template-columns:repeat(7,1fr);
-  gap:6px;
-  margin-top:10px;
+  display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:10px;
 }
-
 .day{
-  aspect-ratio:1/1;
-  border-radius:14px;
-  background:#0e1730;
+  aspect-ratio:1/1;border-radius:14px;background:#0e1730;
   border:1px solid var(--line);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:700;
+  display:flex;align-items:center;justify-content:center;font-weight:700;
 }
-
 .day.today{
   background:rgba(79,140,255,.25);
   border-color:rgba(79,140,255,.45);
