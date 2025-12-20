@@ -3,34 +3,51 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>EHPAD Staff – Démo Web</title>
+  <title>EHPAD – Démo Web (style iOS)</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="app">
-    <h1>EHPAD Staff – Planning</h1>
-    <div class="card">
-      <h2>Disponibilités / Arrêt maladie</h2>
-      <label>Statut</label>
-      <select id="status">
-        <option>Disponible</option>
-        <option>Indisponible</option>
-        <option>Arrêt maladie</option>
-      </select>
+    <header class="top">
+      <h1>EHPAD</h1>
+      <span class="badge">Démo locale</span>
+    </header>
 
-      <label>Du</label>
-      <input type="date" id="from" />
+    <main id="content">
+      <section class="card">
+        <h2>Planning</h2>
+        <div id="calendar"></div>
+      </section>
 
-      <label>Au</label>
-      <input type="date" id="to" />
+      <section class="card">
+        <h2>Disponibilités</h2>
 
-      <label>Note</label>
-      <input type="text" id="note" placeholder="Optionnel"/>
+        <label>Statut</label>
+        <select id="status">
+          <option>Disponible</option>
+          <option>Indisponible</option>
+          <option>Arrêt maladie</option>
+        </select>
 
-      <button onclick="save()">Enregistrer</button>
-      <div id="result"></div>
-    </div>
+        <label>Date</label>
+        <input type="date" id="date" />
+
+        <label>Note (optionnel)</label>
+        <input type="text" id="note" placeholder="Ex : RDV médical" />
+
+        <button onclick="save()">Enregistrer</button>
+        <div id="result" class="result"></div>
+      </section>
+    </main>
+
+    <nav class="tabbar">
+      <button class="active">Planning</button>
+      <button>Échanges</button>
+      <button>Messages</button>
+      <button>Profil</button>
+    </nav>
   </div>
-<script src="app.js"></script>
+
+  <script src="app.js"></script>
 </body>
 </html>
