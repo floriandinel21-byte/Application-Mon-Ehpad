@@ -1,17 +1,15 @@
-EHPAD Staff — Démo Web Locale (style app)
-
-✅ Compatible Windows / Mac / Linux
-✅ 100% local (aucun serveur)
-✅ Données de démo enregistrées dans localStorage
+EHPAD – Démo Web Locale
 
 Utilisation :
-1) Dézippe le dossier
-2) Ouvre index.html (double-clic)
-3) Choisis un rôle (Agent / Direction)
-4) Explore : Planning / Échanges / Messagerie / Profil & santé / Validations (direction)
+1) Dézipper le dossier
+2) Double-cliquer sur index.html
+3) L’application s’ouvre dans votre navigateur (Windows compatible)
 
-Astuce :
-- Pour repartir à zéro : onglet Compte > Réinitialiser la démo.
+⚠️ Cette version est une DÉMO LOCALE :
+- Pas de données réelles
+- Pas de serveur
+- Pas accessible sur Internet
 
-
-Mise à jour : calendrier en style iPhone (mois + sélection de jour + détails).
+Objectif :
+- Présentation à la direction
+- Validation du concept

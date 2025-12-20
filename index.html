@@ -1,53 +1,68 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>EHPAD – Démo Web (style iOS)</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8" />
+  <title>EHPAD – Démo interne</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="app">
-    <header class="top">
-      <h1>EHPAD</h1>
-      <span class="badge">Démo locale</span>
-    </header>
+    <h1>EHPAD – Application interne (Démo locale)</h1>
 
-    <main id="content">
-      <section class="card">
+    <div class="login">
+      <h2>Connexion (démo)</h2>
+      <select id="role">
+        <option value="agent">Agent</option>
+        <option value="direction">Direction</option>
+      </select>
+      <button onclick="login()">Se connecter</button>
+    </div>
+
+    <div id="content" class="hidden">
+      <nav>
+        <button onclick="showTab('planning')">Planning</button>
+        <button onclick="showTab('echanges')">Échanges</button>
+        <button onclick="showTab('messages')">Messagerie</button>
+        <button onclick="showTab('profil')">Profil & santé</button>
+        <button onclick="logout()">Déconnexion</button>
+      </nav>
+
+      <section id="planning" class="tab">
         <h2>Planning</h2>
-        <div id="calendar"></div>
+        <p>Exemple de planning de l’unité et personnel.</p>
+        <ul>
+          <li>14h00 – 21h30 : Agent A</li>
+          <li>07h00 – 14h00 : Agent B</li>
+        </ul>
       </section>
 
-      <section class="card">
-        <h2>Disponibilités</h2>
-
-        <label>Statut</label>
-        <select id="status">
-          <option>Disponible</option>
-          <option>Indisponible</option>
-          <option>Arrêt maladie</option>
-        </select>
-
-        <label>Date</label>
-        <input type="date" id="date" />
-
-        <label>Note (optionnel)</label>
-        <input type="text" id="note" placeholder="Ex : RDV médical" />
-
-        <button onclick="save()">Enregistrer</button>
-        <div id="result" class="result"></div>
+      <section id="echanges" class="tab hidden">
+        <h2>Échanges d’horaires</h2>
+        <p>Sélection d’un horaire et d’un collègue (démo).</p>
+        <button>Proposer un échange</button>
       </section>
-    </main>
 
-    <nav class="tabbar">
-      <button class="active">Planning</button>
-      <button>Échanges</button>
-      <button>Messages</button>
-      <button>Profil</button>
-    </nav>
+      <section id="messages" class="tab hidden">
+        <h2>Messagerie interne</h2>
+        <textarea placeholder="Écrire un message..."></textarea>
+        <button>Envoyer</button>
+      </section>
+
+      <section id="profil" class="tab hidden">
+        <h2>Profil & santé</h2>
+        <label>Allergies</label>
+        <input type="text" placeholder="Ex : pénicilline" />
+        <label>Traitements</label>
+        <input type="text" placeholder="Ex : traitement X" />
+        <label>Taille (cm)</label>
+        <input type="number" />
+        <label>Poids (kg)</label>
+        <input type="number" />
+        <button>Enregistrer</button>
+      </section>
+    </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
