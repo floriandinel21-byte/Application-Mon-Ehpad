@@ -3,110 +3,34 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>EHPAD Staff – Démo Web (locale)</title>
+  <title>EHPAD Staff – Démo Web</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="root"></div>
+  <div id="app">
+    <h1>EHPAD Staff – Planning</h1>
+    <div class="card">
+      <h2>Disponibilités / Arrêt maladie</h2>
+      <label>Statut</label>
+      <select id="status">
+        <option>Disponible</option>
+        <option>Indisponible</option>
+        <option>Arrêt maladie</option>
+      </select>
 
-  <template id="tpl-login">
-    <div class="screen">
-      <div class="topbar">
-        <div class="brand">
-          <div class="logo">E</div>
-          <div>
-            <div class="brand-title">EHPAD Staff</div>
-            <div class="brand-subtitle">Démo web locale</div>
-          </div>
-        </div>
-      </div>
+      <label>Du</label>
+      <input type="date" id="from" />
 
-      <div class="content">
-        <div class="card hero">
-          <div class="hero-title">Connexion</div>
-          <div class="hero-sub">Choisis un profil pour tester (Agent / Direction).</div>
+      <label>Au</label>
+      <input type="date" id="to" />
 
-          <div class="row gap">
-            <div class="field">
-              <label>Rôle</label>
-              <select id="loginRole">
-                <option value="agent">Agent</option>
-                <option value="direction">Direction</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Utilisateur</label>
-              <select id="loginUser"></select>
-            </div>
-          </div>
+      <label>Note</label>
+      <input type="text" id="note" placeholder="Optionnel"/>
 
-          <button class="btn primary" id="btnLogin">Se connecter</button>
-
-          <div class="hint">
-            <span class="pill">100% local</span>
-            <span class="pill">Windows OK</span>
-            <span class="pill">Sans serveur</span>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="section-title">Ce que tu peux montrer à la direction</div>
-          <ul class="bullets">
-            <li>Planning personnel + planning d’unité</li>
-            <li>Échanges d’horaires (avec sélection de deux horaires)</li>
-            <li>Messagerie interne + proposition d’échange</li>
-            <li>Absences / congés / arrêt maladie</li>
-            <li>Heures supplémentaires</li>
-            <li>Profil & santé (agent modifie, direction consulte)</li>
-          </ul>
-        </div>
-      </div>
+      <button onclick="save()">Enregistrer</button>
+      <div id="result"></div>
     </div>
-  </template>
-
-  <template id="tpl-shell">
-    <div class="app">
-      <div class="statusbar"></div>
-
-      <header class="appbar">
-        <div class="appbar-left">
-          <button class="iconbtn" id="btnBack" title="Retour" aria-label="Retour">
-            <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div>
-            <div class="appbar-title" id="appTitle">Planning</div>
-            <div class="appbar-sub" id="appSubtitle"></div>
-          </div>
-        </div>
-
-        <div class="appbar-right">
-          <button class="iconbtn" id="btnAccount" title="Compte" aria-label="Compte">
-            <svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 10-16 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 13a4 4 0 100-8 4 4 0 000 8z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-          </button>
-        </div>
-      </header>
-
-      <main class="main" id="main"></main>
-
-      <nav class="tabbar" id="tabbar"></nav>
-
-      <div class="modal-backdrop hidden" id="modalBackdrop">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-          <div class="modal-head">
-            <div class="modal-title" id="modalTitle">Modal</div>
-            <button class="iconbtn" id="btnModalClose" aria-label="Fermer">
-              <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </button>
-          </div>
-          <div class="modal-body" id="modalBody"></div>
-          <div class="modal-foot" id="modalFoot"></div>
-        </div>
-      </div>
-
-      <div class="toast hidden" id="toast"></div>
-    </div>
-  </template>
-
-  <script src="app.js"></script>
+  </div>
+<script src="app.js"></script>
 </body>
 </html>
