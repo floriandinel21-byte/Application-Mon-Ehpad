@@ -1,68 +1,112 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <title>EHPAD – Démo interne</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EHPAD Staff – Démo Web (locale)</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="app">
-    <h1>EHPAD – Application interne (Démo locale)</h1>
+  <div id="root"></div>
 
-    <div class="login">
-      <h2>Connexion (démo)</h2>
-      <select id="role">
-        <option value="agent">Agent</option>
-        <option value="direction">Direction</option>
-      </select>
-      <button onclick="login()">Se connecter</button>
+  <template id="tpl-login">
+    <div class="screen">
+      <div class="topbar">
+        <div class="brand">
+          <div class="logo">E</div>
+          <div>
+            <div class="brand-title">EHPAD Staff</div>
+            <div class="brand-subtitle">Démo web locale</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="card hero">
+          <div class="hero-title">Connexion</div>
+          <div class="hero-sub">Choisis un profil pour tester (Agent / Direction).</div>
+
+          <div class="row gap">
+            <div class="field">
+              <label>Rôle</label>
+              <select id="loginRole">
+                <option value="agent">Agent</option>
+                <option value="direction">Direction</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Utilisateur</label>
+              <select id="loginUser"></select>
+            </div>
+          </div>
+
+          <button class="btn primary" id="btnLogin">Se connecter</button>
+
+          <div class="hint">
+            <span class="pill">100% local</span>
+            <span class="pill">Windows OK</span>
+            <span class="pill">Sans serveur</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Ce que tu peux montrer à la direction</div>
+          <ul class="bullets">
+            <li>Planning personnel + planning d’unité</li>
+            <li>Échanges d’horaires (avec sélection de deux horaires)</li>
+            <li>Messagerie interne + proposition d’échange</li>
+            <li>Absences / congés / arrêt maladie</li>
+            <li>Heures supplémentaires</li>
+            <li>Profil & santé (agent modifie, direction consulte)</li>
+          </ul>
+        </div>
+      </div>
     </div>
+  </template>
 
-    <div id="content" class="hidden">
-      <nav>
-        <button onclick="showTab('planning')">Planning</button>
-        <button onclick="showTab('echanges')">Échanges</button>
-        <button onclick="showTab('messages')">Messagerie</button>
-        <button onclick="showTab('profil')">Profil & santé</button>
-        <button onclick="logout()">Déconnexion</button>
-      </nav>
+  <template id="tpl-shell">
+    <div class="app">
+      <div class="statusbar"></div>
 
-      <section id="planning" class="tab">
-        <h2>Planning</h2>
-        <p>Exemple de planning de l’unité et personnel.</p>
-        <ul>
-          <li>14h00 – 21h30 : Agent A</li>
-          <li>07h00 – 14h00 : Agent B</li>
-        </ul>
-      </section>
+      <header class="appbar">
+        <div class="appbar-left">
+          <button class="iconbtn" id="btnBack" title="Retour" aria-label="Retour">
+            <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div>
+            <div class="appbar-title" id="appTitle">Planning</div>
+            <div class="appbar-sub" id="appSubtitle"></div>
+          </div>
+        </div>
 
-      <section id="echanges" class="tab hidden">
-        <h2>Échanges d’horaires</h2>
-        <p>Sélection d’un horaire et d’un collègue (démo).</p>
-        <button>Proposer un échange</button>
-      </section>
+        <div class="appbar-right">
+          <button class="iconbtn" id="btnAccount" title="Compte" aria-label="Compte">
+            <svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 10-16 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 13a4 4 0 100-8 4 4 0 000 8z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          </button>
+        </div>
+      </header>
 
-      <section id="messages" class="tab hidden">
-        <h2>Messagerie interne</h2>
-        <textarea placeholder="Écrire un message..."></textarea>
-        <button>Envoyer</button>
-      </section>
+      <main class="main" id="main"></main>
 
-      <section id="profil" class="tab hidden">
-        <h2>Profil & santé</h2>
-        <label>Allergies</label>
-        <input type="text" placeholder="Ex : pénicilline" />
-        <label>Traitements</label>
-        <input type="text" placeholder="Ex : traitement X" />
-        <label>Taille (cm)</label>
-        <input type="number" />
-        <label>Poids (kg)</label>
-        <input type="number" />
-        <button>Enregistrer</button>
-      </section>
+      <nav class="tabbar" id="tabbar"></nav>
+
+      <div class="modal-backdrop hidden" id="modalBackdrop">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+          <div class="modal-head">
+            <div class="modal-title" id="modalTitle">Modal</div>
+            <button class="iconbtn" id="btnModalClose" aria-label="Fermer">
+              <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <div class="modal-body" id="modalBody"></div>
+          <div class="modal-foot" id="modalFoot"></div>
+        </div>
+      </div>
+
+      <div class="toast hidden" id="toast"></div>
     </div>
-  </div>
+  </template>
 
-  <script src="script.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

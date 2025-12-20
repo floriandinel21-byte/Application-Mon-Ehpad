@@ -1,578 +1,1183 @@
-// Mon Ehpad (Démo) — Personnel + Direction — 100% local (GitHub Pages)
-const K={s:"monehpad_demo_session",p:"monehpad_demo_profile",m:"monehpad_demo_messages",e:"monehpad_demo_exchanges",o:"monehpad_demo_overtime"};
-const ACC=[
- {role:"personnel",email:"personnel@mon-ehpad.fr",password:"MonEhpad2025",displayName:"Florian (Personnel)"},
- {role:"direction",email:"direction@mon-ehpad.fr",password:"MonEhpad2025",displayName:"Direction"}
-];
-const DEF_PROFILE={name:"Florian",role:"Agent de soins",email:"personnel@mon-ehpad.fr",phone:"06 00 00 00 00"};
-const now=()=>Date.now();
-const load=(k,f)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):f}catch{return f}};
-const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
-const esc=(s)=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
-const fmtDay=(d)=>new Date(d).toLocaleDateString("fr-FR",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
-const fmtShort=(d)=>new Date(d).toLocaleDateString("fr-FR");
-function seed(){
- if(!localStorage.getItem(K.p)) save(K.p,DEF_PROFILE);
- if(!localStorage.getItem(K.m)) save(K.m,[{id:crypto.randomUUID(),from:"Direction",text:"Bienvenue sur Mon Ehpad (démo locale).",ts:now()-7200000}]);
- if(!localStorage.getItem(K.e)) save(K.e,[]);
- if(!localStorage.getItem(K.o)) save(K.o,[]);
- purgeMsg(30);
-}
-function purgeMsg(days){
- const cut=now()-days*86400000;
- const msgs=load(K.m,[]).filter(x=>(x.ts||0)>=cut);
- save(K.m,msgs);
-}
-seed();
+/*
+  EHPAD Staff — Démo web locale (app-like)
+  - 100% local (localStorage)
+  - Rôles : Agent / Direction
+  - Onglets : Planning / Échanges / Messages / Profil & santé / (Direction) Validations
+*/
 
-const icon=(p)=>`<svg viewBox="0 0 24 24"><path d="${p}"/></svg>`;
-const I={home:icon("M12 3 3 10v11h6v-7h6v7h6V10L12 3z"),
-cal:icon("M7 2h2v2h6V2h2v2h3v18H2V4h5V2zm13 6H4v12h16V8z"),
-swap:icon("M7 7h11l-3-3 1.4-1.4L22.8 9l-6.4 6.4L15 14l3-3H7V7zm10 10H6l3 3-1.4 1.4L1.2 15l6.4-6.4L9 10l-3 3h11v4z"),
-chat:icon("M4 4h16v11H7l-3 3V4zm2 2v7.2L6.8 13H18V6H6z"),
-user:icon("M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-5 0-9 2.5-9 5.5V22h18v-2.5C21 16.5 17 14 12 14z"),
-grid:icon("M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"),
-clock:icon("M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 11h5v-2h-4V6h-2v7z"),
-info:icon("M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm-1 5h2v2h-2V7zm0 4h2v6h-2v-6z")
+const LS_KEY = "ehpad_demo_state_v2";
+
+const icons = {
+  calendar: `<svg viewBox="0 0 24 24"><path d="M7 2v3M17 2v3M3 8h18M5 5h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+  swap: `<svg viewBox="0 0 24 24"><path d="M7 7h14l-3-3M17 17H3l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  msg: `<svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`,
+  heart: `<svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 22l7.8-8.6 1-1a5.5 5.5 0 000-7.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`,
+  check: `<svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 12a8 8 0 11-16 0 8 8 0 0116 0z" fill="none" stroke="currentColor" stroke-width="2"/></svg>`,
+  account: `<svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 10-16 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 13a4 4 0 100-8 4 4 0 000 8z" fill="none" stroke="currentColor" stroke-width="2"/></svg>`
 };
 
-function session(){return load(K.s,null)}
-function setSession(v){save(K.s,v)}
-function clearSession(){localStorage.removeItem(K.s)}
-function role(){return session()?.role||null}
+function nowTime(){
+  const d = new Date();
+  return d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+}
+
+function loadState(){
+  const raw = localStorage.getItem(LS_KEY);
+  if(raw){
+    try { return JSON.parse(raw); } catch {}
+  }
+  // Seed demo data close to your use-case
+  const today = new Date();
+  const day0 = new Date(today); day0.setDate(today.getDate());
+  const day1 = new Date(today); day1.setDate(today.getDate()+1);
+  const day2 = new Date(today); day2.setDate(today.getDate()+2);
+  const users = [
+    {id:"u1", name:"Agent (toi)", unit:"Unité A", role:"agent", email:"agent@ehpad.fr"},
+    {id:"u2", name:"Collègue", unit:"Unité A", role:"agent", email:"collegue@ehpad.fr"},
+    {id:"d1", name:"Direction", unit:"Direction", role:"direction", email:"direction@ehpad.fr"}
+  ];
+  const shifts = [
+    {id:"s1", userId:"u1", unit:"Unité A", date: iso(day0), start:"14:00", end:"21:30", label:"Soir"},
+    {id:"s2", userId:"u2", unit:"Unité A", date: iso(day0), start:"07:00", end:"14:00", label:"Matin"},
+    {id:"s3", userId:"u1", unit:"Unité A", date: iso(day1), start:"07:00", end:"14:00", label:"Matin"},
+    {id:"s4", userId:"u2", unit:"Unité A", date: iso(day1), start:"14:00", end:"21:30", label:"Soir"},
+    {id:"s5", userId:"u1", unit:"Unité A", date: iso(day2), start:"14:00", end:"21:30", label:"Soir"},
+  ];
+
+  const swapRequests = []; // {id, requesterId, targetId, requesterShiftId, targetShiftId, status: pending|approved|refused, createdAt}
+  const leaveRequests = []; // {id, userId, type, from, to, note, status}
+  const overtime = []; // {id, userId, minutes, date, note, status}
+  const profiles = {
+    u1: {userId:"u1", birthDate:"", heightCm:"", weightKg:"", allergies:"", treatments:"", bloodType:"", notes:"", emergencyName:"", emergencyPhone:"", updatedAt:""},
+    u2: {userId:"u2", birthDate:"", heightCm:"", weightKg:"", allergies:"", treatments:"", bloodType:"", notes:"", emergencyName:"", emergencyPhone:"", updatedAt:""},
+  };
+  const messages = {
+    // conversation key "u1_u2"
+    u1_u2: [
+      {from:"u2", text:"Salut, possible d’échanger ton poste ?", time:"09:10"},
+      {from:"u1", text:"Oui, je te propose via l’app 👍", time:"09:12"}
+    ]
+  };
+
+  return {
+    session: { role:"agent", userId:"u1" },
+    users, shifts, swapRequests, leaveRequests, overtime, profiles, messages
+  };
+}
+function saveState(){
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+}
+function iso(d){ return d.toISOString().slice(0,10); }
+function fmtDate(isoDate){
+  const d = new Date(isoDate+"T00:00:00");
+  return d.toLocaleDateString("fr-FR",{weekday:"short", day:"2-digit", month:"short"});
+}
+
+let state = loadState();
+
+const root = document.getElementById("root");
+const tplLogin = document.getElementById("tpl-login");
+const tplShell = document.getElementById("tpl-shell");
+
+let navStack = []; // for back
+let currentTab = "planning";
+let activeChatPeer = "u2";
+
+const tabsAgent = [
+  {id:"planning", label:"Planning", icon:"calendar"},
+  {id:"echanges", label:"Échanges", icon:"swap"},
+  {id:"messages", label:"Messages", icon:"msg"},
+  {id:"profil", label:"Profil", icon:"heart"},
+  {id:"compte", label:"Compte", icon:"account"},
+];
+const tabsDirection = [
+  {id:"planning_dir", label:"Planning", icon:"calendar"},
+  {id:"validations", label:"Valider", icon:"check"},
+  {id:"messages_dir", label:"Messages", icon:"msg"},
+  {id:"profil_dir", label:"Profils", icon:"heart"},
+  {id:"compte", label:"Compte", icon:"account"},
+];
+
+function render(){
+  root.innerHTML = "";
+  const isLoggedIn = !!state.session?.userId;
+  if(!isLoggedIn){
+    root.appendChild(tplLogin.content.cloneNode(true));
+    setupLogin();
+    return;
+  }
+  root.appendChild(tplShell.content.cloneNode(true));
+  setupShell();
+  renderTab(currentTab);
+}
+
+function setupLogin(){
+  const roleSel = document.getElementById("loginRole");
+  const userSel = document.getElementById("loginUser");
+  roleSel.value = state.session?.role || "agent";
+
+  function fillUsers(){
+    const role = roleSel.value;
+    const users = state.users.filter(u => u.role === role);
+    userSel.innerHTML = users.map(u => `<option value="${u.id}">${u.name} — ${u.unit}</option>`).join("");
+    userSel.value = users[0]?.id || "";
+  }
+  roleSel.addEventListener("change", fillUsers);
+  fillUsers();
+
+  document.getElementById("btnLogin").addEventListener("click", () => {
+    state.session.role = roleSel.value;
+    state.session.userId = userSel.value;
+    saveState();
+    currentTab = (state.session.role === "direction") ? "planning_dir" : "planning";
+    render();
+    toast("Connecté ✅");
+  });
+}
+
+function setupShell(){
+  const tabs = (state.session.role === "direction") ? tabsDirection : tabsAgent;
+  const tabbar = document.getElementById("tabbar");
+  tabbar.innerHTML = tabs.map(t => `
+    <div class="tab ${t.id===currentTab?'active':''}" data-tab="${t.id}">
+      ${icons[t.icon]}
+      <span>${t.label}</span>
+    </div>
+  `).join("");
+
+  tabbar.querySelectorAll(".tab").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = el.getAttribute("data-tab");
+      navigate(id);
+    });
+  });
+
+  document.getElementById("btnBack").addEventListener("click", () => {
+    if(navStack.length){
+      const prev = navStack.pop();
+      currentTab = prev;
+      render();
+    } else {
+      toast("Rien à faire ici 🙂");
+    }
+  });
+
+  document.getElementById("btnAccount").addEventListener("click", () => navigate("compte"));
+
+  updateHeader();
+}
+
+function navigate(tabId){
+  if(tabId === currentTab) return;
+  navStack.push(currentTab);
+  currentTab = tabId;
+  render();
+}
+
+function updateHeader(){
+  const title = document.getElementById("appTitle");
+  const subtitle = document.getElementById("appSubtitle");
+
+  const me = state.users.find(u => u.id === state.session.userId);
+  const roleLabel = state.session.role === "direction" ? "Direction" : "Agent";
+  subtitle.textContent = `${me?.name || ""} • ${roleLabel}`;
+
+  const map = {
+    planning: "Planning",
+    echanges: "Échanges",
+    messages: "Messagerie",
+    profil: "Profil & santé",
+    compte: "Compte",
+    planning_dir: "Planning",
+    validations: "Validations",
+    messages_dir: "Messagerie",
+    profil_dir: "Profils & santé"
+  };
+  title.textContent = map[currentTab] || "EHPAD";
+}
+
+function renderTab(tabId){
+  updateHeader();
+  const main = document.getElementById("main");
+  const role = state.session.role;
+
+  if(role === "agent"){
+    if(tabId === "planning") main.innerHTML = viewPlanningAgent();
+    else if(tabId === "echanges") main.innerHTML = viewSwapsAgent();
+    else if(tabId === "messages") main.innerHTML = viewMessagesAgent();
+    else if(tabId === "profil") main.innerHTML = viewProfileAgent();
+    else if(tabId === "compte") main.innerHTML = viewAccount();
+  } else {
+    if(tabId === "planning_dir") main.innerHTML = viewPlanningDirection();
+    else if(tabId === "validations") main.innerHTML = viewValidations();
+    else if(tabId === "messages_dir") main.innerHTML = viewMessagesDirection();
+    else if(tabId === "profil_dir") main.innerHTML = viewProfilesDirection();
+    else if(tabId === "compte") main.innerHTML = viewAccount();
+  }
+
+  // Attach handlers
+  attachHandlers(tabId);
+}
+
+function me(){ return state.users.find(u => u.id === state.session.userId); }
+function isDirection(){ return state.session.role === "direction"; }
+
+function viewPlanningAgent(){
+  const u = me();
+  const unit = u.unit;
+  const weekDates = nextDays(7);
+  const my = state.shifts.filter(s => s.userId === u.id);
+  const unitShifts = state.shifts.filter(s => s.unit === unit);
+
+  return `
+    <div class="carditem">
+      <h3>Ma semaine</h3>
+      <div class="muted">Planning personnel + planning d’unité (${unit})</div>
+      <div class="hr"></div>
+      <div class="week">
+        ${weekDates.map(d => {
+          const di = iso(d);
+          const ms = my.filter(s => s.date===di);
+          const us = unitShifts.filter(s => s.date===di);
+          return `
+            <div class="day">
+              <div class="d">${d.toLocaleDateString("fr-FR",{weekday:"short"})}</div>
+              <div class="n">${d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})}</div>
+              ${ms.map(s => `<div class="shift"><div class="t">${s.start}–${s.end}</div><div class="p">Moi • ${s.label}</div></div>`).join("") || `<div class="muted" style="margin-top:8px">—</div>`}
+              ${us.length ? `<div class="muted" style="margin-top:10px">Équipe: ${us.map(s => userName(s.userId)).join(", ")}</div>` : ``}
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+
+    <div class="carditem">
+      <h3>Disponibilités</h3>
+      <div class="muted">Déclare une indisponibilité ou un arrêt (démo).</div>
+      <div class="hr"></div>
+      <div class="grid2">
+        <div class="field">
+          <label>Statut</label>
+          <select id="availStatus">
+            <option value="available">Disponible</option>
+            <option value="unavailable">Indisponible</option>
+            <option value="sick">Arrêt maladie</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input id="availDate" type="date" value="${iso(new Date())}"/>
+        </div>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>Note (optionnel)</label>
+        <input id="availNote" placeholder="Ex : RDV médical, grippe…"/>
+      </div>
+      <button class="btn primary" id="btnSaveAvail">Enregistrer</button>
+      <div class="hint" id="availResult"></div>
+    </div>
+  `;
+}
+
+function viewPlanningDirection(){
+  const unit = "Unité A";
+  const weekDates = nextDays(7);
+  const unitShifts = state.shifts.filter(s => s.unit === unit);
+
+  return `
+    <div class="carditem">
+      <h3>Planning global</h3>
+      <div class="muted">Vue direction • ${unit}</div>
+      <div class="hr"></div>
+      <div class="week">
+        ${weekDates.map(d => {
+          const di = iso(d);
+          const us = unitShifts.filter(s => s.date===di);
+          return `
+            <div class="day">
+              <div class="d">${d.toLocaleDateString("fr-FR",{weekday:"short"})}</div>
+              <div class="n">${d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})}</div>
+              ${us.map(s => `<div class="shift"><div class="t">${s.start}–${s.end}</div><div class="p">${userName(s.userId)} • ${s.label}</div></div>`).join("") || `<div class="muted" style="margin-top:8px">—</div>`}
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <div class="hr"></div>
+      <div class="muted">Astuce : la mise à jour par glisser-déposer se ferait dans la vraie version (Firebase / serveur).</div>
+    </div>
+  `;
+}
+
+function viewSwapsAgent(){
+  const u = me();
+  const myShifts = state.shifts.filter(s => s.userId === u.id).sort((a,b)=>a.date.localeCompare(b.date));
+  const colleagues = state.users.filter(x => x.role==="agent" && x.unit===u.unit && x.id!==u.id);
+
+  const pending = state.swapRequests.filter(r => r.requesterId === u.id || r.targetId === u.id).slice().reverse();
+
+  return `
+    <div class="carditem">
+      <h3>Proposer un échange</h3>
+      <div class="muted">Sélectionne ton horaire + l’horaire du collègue. La direction valide.</div>
+      <div class="hr"></div>
+
+      <div class="field">
+        <label>1) Mon horaire</label>
+        <select id="swapMyShift">
+          <option value="">—</option>
+          ${myShifts.map(s => `<option value="${s.id}">${fmtDate(s.date)} • ${s.start}-${s.end} (${s.label})</option>`).join("")}
+        </select>
+      </div>
+
+      <div class="field" style="margin-top:10px">
+        <label>2) Collègue</label>
+        <select id="swapColleague">
+          <option value="">—</option>
+          ${colleagues.map(c => `<option value="${c.id}">${c.name}</option>`).join("")}
+        </select>
+      </div>
+
+      <div class="field" style="margin-top:10px">
+        <label>3) Son horaire</label>
+        <select id="swapColShift" disabled>
+          <option value="">—</option>
+        </select>
+      </div>
+
+      <button class="btn primary" id="btnSendSwap">Envoyer à la direction</button>
+      <div class="hint" id="swapHint"></div>
+    </div>
+
+    <div class="carditem">
+      <h3>Historique</h3>
+      <div class="muted">Demandes et statuts</div>
+      <div class="hr"></div>
+      <div class="cardlist">
+        ${pending.length ? pending.map(r => swapCard(r)).join("") : `<div class="muted">Aucune demande pour l’instant.</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function swapCard(r){
+  const my = state.shifts.find(s => s.id === r.requesterShiftId);
+  const co = state.shifts.find(s => s.id === r.targetShiftId);
+  const status = r.status;
+  const badge = status === "approved" ? `<span class="badge ok">Validé</span>` :
+                status === "refused" ? `<span class="badge no">Refusé</span>` :
+                `<span class="badge warn">En attente</span>`;
+  return `
+    <div class="carditem">
+      <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+        <div>
+          <div style="font-weight:800">Échange • ${userName(r.requesterId)} ↔ ${userName(r.targetId)}</div>
+          <div class="muted">${r.createdAt} • ${badge}</div>
+        </div>
+      </div>
+      <div class="hr"></div>
+      <div class="split">
+        <div class="carditem" style="padding:12px">
+          <div class="muted">Horaire agent</div>
+          <div style="font-weight:800;margin-top:4px">${fmtDate(my?.date)} • ${my?.start}-${my?.end}</div>
+          <div class="muted">${my?.label || ""}</div>
+        </div>
+        <div class="carditem" style="padding:12px">
+          <div class="muted">Horaire collègue</div>
+          <div style="font-weight:800;margin-top:4px">${fmtDate(co?.date)} • ${co?.start}-${co?.end}</div>
+          <div class="muted">${co?.label || ""}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function viewMessagesAgent(){
+  const u = me();
+  const peer = state.users.find(x => x.id === activeChatPeer) || state.users.find(x => x.role==="agent" && x.id!==u.id);
+  if(peer) activeChatPeer = peer.id;
+
+  const convoKey = convo(u.id, peer.id);
+  const msgs = state.messages[convoKey] || [];
+  const peers = state.users.filter(x => x.role==="agent" && x.unit===u.unit && x.id!==u.id);
+
+  return `
+    <div class="carditem">
+      <h3>Conversations</h3>
+      <div class="muted">Messagerie interne + proposition d’échange</div>
+      <div class="hr"></div>
+      <div class="field">
+        <label>Avec</label>
+        <select id="chatPeer">
+          ${peers.map(p => `<option value="${p.id}" ${p.id===activeChatPeer?'selected':''}>${p.name}</option>`).join("")}
+        </select>
+      </div>
+      <div class="hr"></div>
+      <div class="chat" id="chat">
+        ${msgs.map(m => bubble(m, m.from===u.id)).join("")}
+      </div>
+    </div>
+
+    <div class="chatbar">
+      <button class="iconbtn primary" id="btnSwapInChat" title="Proposer un échange">${icons.swap}</button>
+      <input id="chatInput" placeholder="Nouveau message…"/>
+      <button class="iconbtn primary" id="btnSendMsg" title="Envoyer">${icons.msg}</button>
+    </div>
+  `;
+}
+
+function viewMessagesDirection(){
+  return `
+    <div class="carditem">
+      <h3>Messagerie (direction)</h3>
+      <div class="muted">Démo : consultation simple.</div>
+      <div class="hr"></div>
+      <div class="muted">Dans la version finale, la direction peut envoyer des messages aux agents et recevoir les demandes.</div>
+    </div>
+  `;
+}
+
+function bubble(m, isMe){
+  if(m.type === "swap"){
+    return `
+      <div class="bubble ${isMe?'me':''}">
+        <div style="font-weight:850">Proposition d’échange</div>
+        <div class="muted" style="margin-top:6px">${m.summary}</div>
+        <div class="time">${m.time}</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="bubble ${isMe?'me':''}">
+      <div>${escapeHtml(m.text)}</div>
+      <div class="time">${m.time}</div>
+    </div>
+  `;
+}
+
+function viewProfileAgent(){
+  const u = me();
+  const p = state.profiles[u.id] || {userId:u.id};
+  return `
+    <div class="carditem">
+      <h3>Profil & santé</h3>
+      <div class="muted">Modifiable par toi • Consultable par la direction (lecture seule)</div>
+      <div class="hr"></div>
+
+      <div class="carditem" style="padding:12px">
+        <div style="font-weight:850">Identité</div>
+        <div class="muted" style="margin-top:6px">${u.name} • ${u.unit}</div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="field">
+        <label>Date de naissance</label>
+        <input type="date" id="p_birth" value="${p.birthDate||""}">
+      </div>
+
+      <div class="grid2" style="margin-top:10px">
+        <div class="field">
+          <label>Taille (cm)</label>
+          <input type="number" id="p_height" value="${p.heightCm||""}" placeholder="Ex: 175">
+        </div>
+        <div class="field">
+          <label>Poids (kg)</label>
+          <input type="number" step="0.1" id="p_weight" value="${p.weightKg||""}" placeholder="Ex: 70.5">
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="field">
+        <label>Allergies</label>
+        <textarea id="p_allergies" placeholder="Ex: pénicilline…">${p.allergies||""}</textarea>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>Traitements / médicaments</label>
+        <textarea id="p_treatments" placeholder="Ex: traitement X…">${p.treatments||""}</textarea>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>Groupe sanguin (optionnel)</label>
+        <input id="p_blood" value="${p.bloodType||""}" placeholder="Ex: O+">
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>Notes</label>
+        <textarea id="p_notes" placeholder="Ex: asthme, diabète…">${p.notes||""}</textarea>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="section-title">Contact d’urgence</div>
+      <div class="grid2">
+        <div class="field">
+          <label>Nom</label>
+          <input id="p_em_name" value="${p.emergencyName||""}" placeholder="Ex: Maman">
+        </div>
+        <div class="field">
+          <label>Téléphone</label>
+          <input id="p_em_phone" value="${p.emergencyPhone||""}" placeholder="06...">
+        </div>
+      </div>
+
+      <button class="btn primary" id="btnSaveProfile">Enregistrer</button>
+      <div class="muted" id="profileSaved">${p.updatedAt ? "Dernière mise à jour : "+p.updatedAt : ""}</div>
+    </div>
+
+    <div class="carditem">
+      <h3>Absences / congés</h3>
+      <div class="muted">Crée une demande (démo).</div>
+      <div class="hr"></div>
+      <div class="field">
+        <label>Type</label>
+        <select id="leaveType">
+          <option value="Congés payés">Congés payés</option>
+          <option value="Congé sans solde">Congé sans solde</option>
+          <option value="Arrêt maladie">Arrêt maladie</option>
+          <option value="Autre">Autre</option>
+        </select>
+      </div>
+      <div class="grid2" style="margin-top:10px">
+        <div class="field">
+          <label>Du</label>
+          <input type="date" id="leaveFrom" value="${iso(new Date())}">
+        </div>
+        <div class="field">
+          <label>Au</label>
+          <input type="date" id="leaveTo" value="${iso(new Date())}">
+        </div>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>Note</label>
+        <input id="leaveNote" placeholder="Optionnel">
+      </div>
+      <button class="btn primary" id="btnSendLeave">Envoyer à la direction</button>
+      <div class="hr"></div>
+      <div class="section-title">Mes demandes</div>
+      <div class="cardlist">
+        ${state.leaveRequests.filter(r=>r.userId===u.id).slice().reverse().map(leaveCard).join("") || `<div class="muted">Aucune demande.</div>`}
+      </div>
+    </div>
+
+    <div class="carditem">
+      <h3>Heures supplémentaires</h3>
+      <div class="muted">Déclare 15/30/45/60 min (démo).</div>
+      <div class="hr"></div>
+      <div class="grid2">
+        <div class="field">
+          <label>Durée</label>
+          <select id="otMinutes">
+            <option value="15">15 min</option>
+            <option value="30">30 min</option>
+            <option value="45">45 min</option>
+            <option value="60">60 min</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="otDate" value="${iso(new Date())}">
+        </div>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>Note</label>
+        <input id="otNote" placeholder="Ex : fin à 14h15">
+      </div>
+      <button class="btn primary" id="btnSendOT">Envoyer à la direction</button>
+      <div class="hr"></div>
+      <div class="section-title">Mes heures supp</div>
+      <div class="cardlist">
+        ${state.overtime.filter(o=>o.userId===u.id).slice().reverse().map(otCard).join("") || `<div class="muted">Aucune déclaration.</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function viewProfilesDirection(){
+  const agents = state.users.filter(u => u.role==="agent");
+  return `
+    <div class="carditem">
+      <h3>Profils & santé (consultation)</h3>
+      <div class="muted">Lecture seule • accès réservé à la direction</div>
+      <div class="hr"></div>
+      <div class="cardlist">
+        ${agents.map(a => `
+          <div class="carditem">
+            <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+              <div>
+                <div style="font-weight:850">${a.name}</div>
+                <div class="muted">${a.unit}</div>
+              </div>
+              <button class="btn small ghost" data-open-profile="${a.id}">Ouvrir</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function viewValidations(){
+  const swapsPending = state.swapRequests.filter(r => r.status==="pending").slice().reverse();
+  const leavesPending = state.leaveRequests.filter(r => r.status==="pending").slice().reverse();
+  const otPending = state.overtime.filter(r => r.status==="pending").slice().reverse();
+
+  return `
+    <div class="carditem">
+      <h3>Validations</h3>
+      <div class="muted">Accepter / refuser les demandes (démo)</div>
+      <div class="hr"></div>
+
+      <div class="section-title">Échanges</div>
+      <div class="cardlist">
+        ${swapsPending.length ? swapsPending.map(r => validationSwapCard(r)).join("") : `<div class="muted">Aucune demande en attente.</div>`}
+      </div>
+
+      <div class="hr"></div>
+      <div class="section-title">Absences / congés</div>
+      <div class="cardlist">
+        ${leavesPending.length ? leavesPending.map(r => validationLeaveCard(r)).join("") : `<div class="muted">Aucune demande en attente.</div>`}
+      </div>
+
+      <div class="hr"></div>
+      <div class="section-title">Heures supplémentaires</div>
+      <div class="cardlist">
+        ${otPending.length ? otPending.map(r => validationOTCard(r)).join("") : `<div class="muted">Aucune demande en attente.</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function validationSwapCard(r){
+  return `
+    <div class="carditem">
+      <div style="font-weight:850">Échange • ${userName(r.requesterId)} ↔ ${userName(r.targetId)}</div>
+      <div class="muted">${r.createdAt}</div>
+      <div class="hr"></div>
+      ${swapCard(r)}
+      <div class="row gap" style="margin-top:10px">
+        <button class="btn small primary" data-swap-approve="${r.id}">Accepter</button>
+        <button class="btn small danger" data-swap-refuse="${r.id}">Refuser</button>
+      </div>
+    </div>
+  `;
+}
+
+function leaveCard(r){
+  const badge = r.status==="approved" ? `<span class="badge ok">Approuvé</span>` :
+                r.status==="refused" ? `<span class="badge no">Refusé</span>` :
+                `<span class="badge warn">En attente</span>`;
+  return `
+    <div class="carditem">
+      <div style="font-weight:850">${r.type} ${badge}</div>
+      <div class="muted">${fmtDate(r.from)} → ${fmtDate(r.to)} • ${r.note || "—"}</div>
+    </div>
+  `;
+}
+function validationLeaveCard(r){
+  return `
+    <div class="carditem">
+      <div style="font-weight:850">${userName(r.userId)} • ${r.type}</div>
+      <div class="muted">${fmtDate(r.from)} → ${fmtDate(r.to)} • ${r.note || "—"}</div>
+      <div class="row gap" style="margin-top:10px">
+        <button class="btn small primary" data-leave-approve="${r.id}">Accepter</button>
+        <button class="btn small danger" data-leave-refuse="${r.id}">Refuser</button>
+      </div>
+    </div>
+  `;
+}
+function otCard(r){
+  const badge = r.status==="approved" ? `<span class="badge ok">Validé</span>` :
+                r.status==="refused" ? `<span class="badge no">Refusé</span>` :
+                `<span class="badge warn">En attente</span>`;
+  return `
+    <div class="carditem">
+      <div style="font-weight:850">${r.minutes} min ${badge}</div>
+      <div class="muted">${fmtDate(r.date)} • ${r.note || "—"}</div>
+    </div>
+  `;
+}
+function validationOTCard(r){
+  return `
+    <div class="carditem">
+      <div style="font-weight:850">${userName(r.userId)} • ${r.minutes} min</div>
+      <div class="muted">${fmtDate(r.date)} • ${r.note || "—"}</div>
+      <div class="row gap" style="margin-top:10px">
+        <button class="btn small primary" data-ot-approve="${r.id}">Valider</button>
+        <button class="btn small danger" data-ot-refuse="${r.id}">Refuser</button>
+      </div>
+    </div>
+  `;
+}
+
+function viewAccount(){
+  const u = me();
+  const roleLabel = isDirection() ? "Direction" : "Agent";
+  const users = state.users.filter(x => x.role === state.session.role);
+
+  return `
+    <div class="carditem">
+      <h3>Compte</h3>
+      <div class="muted">Démo locale • changer de profil</div>
+      <div class="hr"></div>
+
+      <div class="carditem" style="padding:12px">
+        <div class="row" style="justify-content:space-between;gap:10px">
+          <div>
+            <div style="font-weight:850">${u.name}</div>
+            <div class="muted">${roleLabel} • ${u.unit}</div>
+          </div>
+          <button class="btn small danger" id="btnLogout">Déconnexion</button>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="section-title">Changer d’utilisateur</div>
+      <div class="field">
+        <label>Utilisateur</label>
+        <select id="switchUser">
+          ${users.map(x => `<option value="${x.id}" ${x.id===u.id?'selected':''}>${x.name}</option>`).join("")}
+        </select>
+      </div>
+      <button class="btn primary" id="btnSwitchUser">Changer</button>
+
+      <div class="hr"></div>
+      <div class="section-title">Rôle</div>
+      <div class="grid2">
+        <button class="btn ${isDirection()?'primary':'ghost'}" id="btnRoleDir">Direction</button>
+        <button class="btn ${!isDirection()?'primary':'ghost'}" id="btnRoleAgent">Agent</button>
+      </div>
+      <div class="muted" style="margin-top:10px">
+        En production, cette partie devient une vraie connexion par e-mail (Firebase Auth).
+      </div>
+    </div>
+
+    <div class="carditem">
+      <h3>Données locales</h3>
+      <div class="muted">Si tu veux repartir à zéro (démo)</div>
+      <div class="hr"></div>
+      <button class="btn danger" id="btnReset">Réinitialiser la démo</button>
+    </div>
+  `;
+}
+
+function attachHandlers(tabId){
+  if(tabId === "planning"){
+    const btn = document.getElementById("btnSaveAvail");
+    if(btn) btn.addEventListener("click", () => {
+      const st = document.getElementById("availStatus").value;
+      const d = document.getElementById("availDate").value;
+      const note = document.getElementById("availNote").value.trim();
+      const label = st==="available" ? "Disponible" : st==="unavailable" ? "Indisponible" : "Arrêt maladie";
+      toast("Enregistré ✅");
+      const hint = document.getElementById("availResult");
+      hint.innerHTML = `<span class="badge ok">${label}</span><span class="badge">${fmtDate(d)}</span>${note?`<span class="badge">${escapeHtml(note)}</span>`:""}`;
+    });
+  }
+
+  if(tabId === "echanges"){
+    const mySel = document.getElementById("swapMyShift");
+    const colSel = document.getElementById("swapColleague");
+    const colShiftSel = document.getElementById("swapColShift");
+    const btnSend = document.getElementById("btnSendSwap");
+    const hint = document.getElementById("swapHint");
+
+    function fillColShifts(){
+      const colId = colSel.value;
+      const shifts = state.shifts.filter(s => s.userId === colId).sort((a,b)=>a.date.localeCompare(b.date));
+      colShiftSel.innerHTML = `<option value="">—</option>` + shifts.map(s => `<option value="${s.id}">${fmtDate(s.date)} • ${s.start}-${s.end} (${s.label})</option>`).join("");
+      colShiftSel.disabled = !colId;
+    }
+    if(colSel) colSel.addEventListener("change", fillColShifts);
+    fillColShifts();
+
+    if(btnSend) btnSend.addEventListener("click", () => {
+      const myId = mySel.value;
+      const colId = colSel.value;
+      const colShiftId = colShiftSel.value;
+      if(!myId || !colId || !colShiftId){
+        hint.innerHTML = `<span class="badge no">Choisis les 3 champs</span>`;
+        toast("Champs manquants");
+        return;
+      }
+      const req = {
+        id: "sw_" + Math.random().toString(16).slice(2),
+        requesterId: state.session.userId,
+        targetId: colId,
+        requesterShiftId: myId,
+        targetShiftId: colShiftId,
+        status: "pending",
+        createdAt: new Date().toLocaleString("fr-FR",{dateStyle:"short", timeStyle:"short"})
+      };
+      state.swapRequests.push(req);
+      saveState();
+      hint.innerHTML = `<span class="badge ok">Envoyé</span><span class="badge warn">En attente de validation</span>`;
+      toast("Demande envoyée ✅");
+      renderTab("echanges");
+    });
+  }
+
+  if(tabId === "messages"){
+    const peerSel = document.getElementById("chatPeer");
+    if(peerSel) peerSel.addEventListener("change", () => {
+      activeChatPeer = peerSel.value;
+      renderTab("messages");
+    });
+
+    const sendBtn = document.getElementById("btnSendMsg");
+    const input = document.getElementById("chatInput");
+    if(sendBtn) sendBtn.addEventListener("click", () => sendChatMessage());
+    if(input) input.addEventListener("keydown", (e) => {
+      if(e.key === "Enter") sendChatMessage();
+    });
+
+    const btnSwap = document.getElementById("btnSwapInChat");
+    if(btnSwap) btnSwap.addEventListener("click", () => openSwapModalFromChat());
+  }
+
+  if(tabId === "profil"){
+    const saveBtn = document.getElementById("btnSaveProfile");
+    if(saveBtn) saveBtn.addEventListener("click", () => {
+      const u = me();
+      const p = state.profiles[u.id] || {userId:u.id};
+      p.birthDate = document.getElementById("p_birth").value;
+      p.heightCm = document.getElementById("p_height").value;
+      p.weightKg = document.getElementById("p_weight").value;
+      p.allergies = document.getElementById("p_allergies").value.trim();
+      p.treatments = document.getElementById("p_treatments").value.trim();
+      p.bloodType = document.getElementById("p_blood").value.trim();
+      p.notes = document.getElementById("p_notes").value.trim();
+      p.emergencyName = document.getElementById("p_em_name").value.trim();
+      p.emergencyPhone = document.getElementById("p_em_phone").value.trim();
+      p.updatedAt = new Date().toLocaleString("fr-FR",{dateStyle:"short", timeStyle:"short"});
+      state.profiles[u.id] = p;
+      saveState();
+      document.getElementById("profileSaved").textContent = "Dernière mise à jour : " + p.updatedAt;
+      toast("Profil enregistré ✅");
+    });
+
+    const btnLeave = document.getElementById("btnSendLeave");
+    if(btnLeave) btnLeave.addEventListener("click", () => {
+      const u = me();
+      const req = {
+        id: "lv_" + Math.random().toString(16).slice(2),
+        userId: u.id,
+        type: document.getElementById("leaveType").value,
+        from: document.getElementById("leaveFrom").value,
+        to: document.getElementById("leaveTo").value,
+        note: document.getElementById("leaveNote").value.trim(),
+        status: "pending",
+        createdAt: nowTime()
+      };
+      state.leaveRequests.push(req);
+      saveState();
+      toast("Demande envoyée ✅");
+      renderTab("profil");
+    });
+
+    const btnOT = document.getElementById("btnSendOT");
+    if(btnOT) btnOT.addEventListener("click", () => {
+      const u = me();
+      const entry = {
+        id: "ot_" + Math.random().toString(16).slice(2),
+        userId: u.id,
+        minutes: parseInt(document.getElementById("otMinutes").value, 10),
+        date: document.getElementById("otDate").value,
+        note: document.getElementById("otNote").value.trim(),
+        status: "pending",
+        createdAt: nowTime()
+      };
+      state.overtime.push(entry);
+      saveState();
+      toast("Heures supp envoyées ✅");
+      renderTab("profil");
+    });
+  }
+
+  if(tabId === "profil_dir"){
+    document.querySelectorAll("[data-open-profile]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const uid = btn.getAttribute("data-open-profile");
+        openProfileModal(uid);
+      });
+    });
+  }
+
+  if(tabId === "validations"){
+    document.querySelectorAll("[data-swap-approve]").forEach(b => b.addEventListener("click", () => {
+      const id = b.getAttribute("data-swap-approve");
+      setSwapStatus(id, "approved");
+    }));
+    document.querySelectorAll("[data-swap-refuse]").forEach(b => b.addEventListener("click", () => {
+      const id = b.getAttribute("data-swap-refuse");
+      setSwapStatus(id, "refused");
+    }));
+    document.querySelectorAll("[data-leave-approve]").forEach(b => b.addEventListener("click", () => {
+      const id = b.getAttribute("data-leave-approve");
+      setLeaveStatus(id, "approved");
+    }));
+    document.querySelectorAll("[data-leave-refuse]").forEach(b => b.addEventListener("click", () => {
+      const id = b.getAttribute("data-leave-refuse");
+      setLeaveStatus(id, "refused");
+    }));
+    document.querySelectorAll("[data-ot-approve]").forEach(b => b.addEventListener("click", () => {
+      const id = b.getAttribute("data-ot-approve");
+      setOTStatus(id, "approved");
+    }));
+    document.querySelectorAll("[data-ot-refuse]").forEach(b => b.addEventListener("click", () => {
+      const id = b.getAttribute("data-ot-refuse");
+      setOTStatus(id, "refused");
+    }));
+  }
+
+  if(tabId === "compte"){
+    const btnLogout = document.getElementById("btnLogout");
+    if(btnLogout) btnLogout.addEventListener("click", () => {
+      state.session.userId = "";
+      saveState();
+      navStack = [];
+      render();
+    });
+
+    const btnSwitch = document.getElementById("btnSwitchUser");
+    if(btnSwitch) btnSwitch.addEventListener("click", () => {
+      const sel = document.getElementById("switchUser").value;
+      state.session.userId = sel;
+      saveState();
+      toast("Compte changé ✅");
+      render();
+    });
+
+    const btnDir = document.getElementById("btnRoleDir");
+    const btnAgent = document.getElementById("btnRoleAgent");
+    if(btnDir) btnDir.addEventListener("click", () => switchRole("direction"));
+    if(btnAgent) btnAgent.addEventListener("click", () => switchRole("agent"));
+
+    const btnReset = document.getElementById("btnReset");
+    if(btnReset) btnReset.addEventListener("click", () => {
+      localStorage.removeItem(LS_KEY);
+      state = loadState();
+      saveState();
+      navStack = [];
+      currentTab = "planning";
+      toast("Réinitialisé ✅");
+      render();
+    });
+  }
+
+  // Update active tab style
+  const tabs = document.querySelectorAll(".tabbar .tab");
+  tabs.forEach(t => t.classList.toggle("active", t.getAttribute("data-tab") === currentTab));
+}
+
+function switchRole(role){
+  state.session.role = role;
+  const candidates = state.users.filter(u => u.role === role);
+  state.session.userId = candidates[0]?.id || "";
+  saveState();
+  navStack = [];
+  currentTab = (role === "direction") ? "planning_dir" : "planning";
+  toast("Rôle changé ✅");
+  render();
+}
+
+function sendChatMessage(){
+  const u = me();
+  const peerId = document.getElementById("chatPeer").value;
+  const input = document.getElementById("chatInput");
+  const text = (input.value || "").trim();
+  if(!text) return;
+
+  const key = convo(u.id, peerId);
+  state.messages[key] = state.messages[key] || [];
+  state.messages[key].push({from:u.id, text, time: nowTime()});
+  saveState();
+  input.value = "";
+  renderTab("messages");
+  scrollChatBottom();
+}
+
+function openSwapModalFromChat(){
+  const u = me();
+  const peerId = document.getElementById("chatPeer").value;
+
+  const myShifts = state.shifts.filter(s => s.userId === u.id).sort((a,b)=>a.date.localeCompare(b.date));
+  const peerShifts = state.shifts.filter(s => s.userId === peerId).sort((a,b)=>a.date.localeCompare(b.date));
+
+  openModal("Proposer un échange", `
+    <div class="muted">Choisis ton horaire + l’horaire du collègue.</div>
+    <div class="hr"></div>
+    <div class="field">
+      <label>Mon horaire</label>
+      <select id="m_my">
+        <option value="">—</option>
+        ${myShifts.map(s => `<option value="${s.id}">${fmtDate(s.date)} • ${s.start}-${s.end}</option>`).join("")}
+      </select>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>Horaire du collègue</label>
+      <select id="m_peer">
+        <option value="">—</option>
+        ${peerShifts.map(s => `<option value="${s.id}">${fmtDate(s.date)} • ${s.start}-${s.end}</option>`).join("")}
+      </select>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>Commentaire (optionnel)</label>
+      <input id="m_note" placeholder="Ex : échange exceptionnel…">
+    </div>
+  `, `
+    <button class="btn ghost" id="m_cancel">Annuler</button>
+    <button class="btn primary" id="m_send">Envoyer</button>
+  `);
+
+  document.getElementById("m_cancel").onclick = closeModal;
+  document.getElementById("m_send").onclick = () => {
+    const myId = document.getElementById("m_my").value;
+    const peerShiftId = document.getElementById("m_peer").value;
+    const note = document.getElementById("m_note").value.trim();
+    if(!myId || !peerShiftId){
+      toast("Choisis les deux horaires");
+      return;
+    }
+    const req = {
+      id: "sw_" + Math.random().toString(16).slice(2),
+      requesterId: u.id,
+      targetId: peerId,
+      requesterShiftId: myId,
+      targetShiftId: peerShiftId,
+      status: "pending",
+      createdAt: new Date().toLocaleString("fr-FR",{dateStyle:"short", timeStyle:"short"})
+    };
+    state.swapRequests.push(req);
+
+    const key = convo(u.id, peerId);
+    state.messages[key] = state.messages[key] || [];
+    const my = state.shifts.find(s => s.id === myId);
+    const pe = state.shifts.find(s => s.id === peerShiftId);
+    const summary = `${fmtDate(my.date)} ${my.start}-${my.end} ↔ ${fmtDate(pe.date)} ${pe.start}-${pe.end}${note?(" • "+note):""}`;
+    state.messages[key].push({from:u.id, type:"swap", summary, time: nowTime()});
+
+    saveState();
+    closeModal();
+    toast("Échange envoyé ✅");
+    renderTab("messages");
+    scrollChatBottom();
+  };
+}
+
+function setSwapStatus(id, status){
+  const r = state.swapRequests.find(x => x.id === id);
+  if(!r) return;
+  r.status = status;
+  saveState();
+  toast(status==="approved" ? "Échange validé ✅" : "Échange refusé ❌");
+  renderTab("validations");
+}
+function setLeaveStatus(id, status){
+  const r = state.leaveRequests.find(x => x.id === id);
+  if(!r) return;
+  r.status = status;
+  saveState();
+  toast(status==="approved" ? "Demande approuvée ✅" : "Demande refusée ❌");
+  renderTab("validations");
+}
+function setOTStatus(id, status){
+  const r = state.overtime.find(x => x.id === id);
+  if(!r) return;
+  r.status = status;
+  saveState();
+  toast(status==="approved" ? "Heures supp validées ✅" : "Heures supp refusées ❌");
+  renderTab("validations");
+}
+
+function openProfileModal(uid){
+  const u = state.users.find(x=>x.id===uid);
+  const p = state.profiles[uid] || {};
+  openModal(`Profil & santé`, `
+    <div class="carditem" style="padding:12px">
+      <div style="font-weight:850">${u.name}</div>
+      <div class="muted">${u.unit}</div>
+    </div>
+    <div class="hr"></div>
+    <div class="section-title">Infos</div>
+    <div class="carditem" style="padding:12px">
+      <div class="muted">Naissance</div><div style="font-weight:850">${p.birthDate || "—"}</div>
+      <div class="hr"></div>
+      <div class="muted">Taille / Poids</div><div style="font-weight:850">${p.heightCm || "—"} cm • ${p.weightKg || "—"} kg</div>
+    </div>
+    <div class="hr"></div>
+    <div class="section-title">Santé</div>
+    <div class="carditem" style="padding:12px">
+      <div class="muted">Allergies</div><div style="white-space:pre-wrap">${escapeHtml(p.allergies || "—")}</div>
+      <div class="hr"></div>
+      <div class="muted">Traitements</div><div style="white-space:pre-wrap">${escapeHtml(p.treatments || "—")}</div>
+      <div class="hr"></div>
+      <div class="muted">Groupe sanguin</div><div style="font-weight:850">${escapeHtml(p.bloodType || "—")}</div>
+      <div class="hr"></div>
+      <div class="muted">Notes</div><div style="white-space:pre-wrap">${escapeHtml(p.notes || "—")}</div>
+    </div>
+    <div class="hr"></div>
+    <div class="section-title">Contact d’urgence</div>
+    <div class="carditem" style="padding:12px">
+      <div class="muted">Nom</div><div style="font-weight:850">${escapeHtml(p.emergencyName || "—")}</div>
+      <div class="muted" style="margin-top:8px">Téléphone</div><div style="font-weight:850">${escapeHtml(p.emergencyPhone || "—")}</div>
+    </div>
+    <div class="muted" style="margin-top:10px">${p.updatedAt ? "Dernière mise à jour : "+p.updatedAt : ""}</div>
+  `, `<button class="btn primary" id="btnCloseP">Fermer</button>`);
+  document.getElementById("btnCloseP").onclick = closeModal;
+}
+
+function openModal(title, bodyHtml, footHtml){
+  const bd = document.getElementById("modalBackdrop");
+  const t = document.getElementById("modalTitle");
+  const b = document.getElementById("modalBody");
+  const f = document.getElementById("modalFoot");
+  t.textContent = title;
+  b.innerHTML = bodyHtml;
+  f.innerHTML = footHtml || "";
+  bd.classList.remove("hidden");
+  document.getElementById("btnModalClose").onclick = closeModal;
+  bd.addEventListener("click", (e)=>{ if(e.target===bd) closeModal(); }, {once:true});
+}
+function closeModal(){
+  const bd = document.getElementById("modalBackdrop");
+  bd.classList.add("hidden");
+  document.getElementById("modalBody").innerHTML = "";
+  document.getElementById("modalFoot").innerHTML = "";
+}
 
 function toast(msg){
- const el=document.createElement("div");
- el.style.position="fixed";el.style.left="50%";el.style.bottom="90px";el.style.transform="translateX(-50%)";
- el.style.padding="10px 12px";el.style.background="rgba(15,23,42,.92)";el.style.color="white";
- el.style.borderRadius="12px";el.style.zIndex="9999";el.style.maxWidth="92vw";el.style.fontSize="13px";
- el.textContent=msg;document.body.appendChild(el);
- setTimeout(()=>{el.style.opacity="0";el.style.transition="opacity .3s"},1700);
- setTimeout(()=>el.remove(),2100);
-}
-async function ensureNotifyPermission(){
- if(!("Notification" in window)) return false;
- if(Notification.permission==="granted") return true;
- if(Notification.permission==="denied") return false;
- try{
-   const p = await Notification.requestPermission();
-   return p==="granted";
- }catch{ return false; }
-}
-async function notify(title, body){
- const ok = await ensureNotifyPermission();
- if(ok){
-   try{ new Notification(title,{body}); }catch{ toast(body); }
- } else {
-   // fallback: toast (démo)
-   toast(body);
- }
+  const el = document.getElementById("toast");
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=> el.classList.add("hidden"), 2200);
 }
 
-function layout(title,sub,body,tabs){
- const s=session(); const r=s?.role||"—"; const u=s?.displayName||"Non connecté";
- return `<div class="container">
-  <div class="header">
-    <div class="brand">
-      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 3 10v11h6v-7h6v7h6V10L12 3z"/></svg></div>
-      <div class="titleblock"><h1>${title}</h1><p>${sub||""}</p></div>
-    </div>
-    <div class="pill"><small>${r==="direction"?"Direction":r==="personnel"?"Personnel":"Invité"}</small><span>•</span><small>${esc(u)}</small></div>
-  </div>
-  ${body}
- </div>${tabs||""}<div class="modal-bg" id="modalbg" onclick="closeModal(event)"><div class="modal" id="modal" onclick="event.stopPropagation()"></div></div>`;
+function nextDays(n){
+  const out = [];
+  const d = new Date();
+  for(let i=0;i<n;i++){
+    const x = new Date(d);
+    x.setDate(d.getDate()+i);
+    out.push(x);
+  }
+  return out;
+}
+function userName(id){
+  return state.users.find(u=>u.id===id)?.name || id;
+}
+function convo(a,b){
+  return [a,b].sort().join("_");
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function scrollChatBottom(){
+  const chat = document.getElementById("chat");
+  if(chat) chat.scrollIntoView({block:"end"});
 }
 
-function nav(active){
- const r=role();
- const tabs = (r==="direction") ? [
-  {id:"dir_dashboard",lab:"Tableau",ic:I.grid},
-  {id:"calendar",lab:"Calendrier",ic:I.cal},
-  {id:"dir_exchanges",lab:"Échanges",ic:I.swap},
-  {id:"dir_overtime",lab:"Heures sup",ic:I.clock},
-  {id:"messages",lab:"Messages",ic:I.chat},
- ] : [
-  {id:"home",lab:"Accueil",ic:I.home},
-  {id:"calendar",lab:"Calendrier",ic:I.cal},
-  {id:"exchange",lab:"Échange",ic:I.swap},
-  {id:"messages",lab:"Messages",ic:I.chat},
-  {id:"profile",lab:"Profil",ic:I.user},
- ];
- return `<div class="navbar"><div class="tabs">${
-  tabs.map(t=>`<button class="tab ${active===t.id?"active":""}" onclick="go('${t.id}')">${t.ic}<span>${t.lab}</span></button>`).join("")
- }</div></div>`;
-}
-
-function render(html){document.getElementById("app").innerHTML=html}
-
-function loginView(){
- render(layout("Mon Ehpad","Connexion (démo)",`
-  <div class="grid">
-   <div class="card">
-    <h2>Connexion</h2><p>Démo locale (GitHub Pages). Personnel + Direction.</p><hr class="sep"/>
-    <div class="field"><label>Adresse e-mail</label><input id="email" type="email" placeholder="personnel@mon-ehpad.fr"/></div>
-    <div class="field"><label>Mot de passe</label><input id="pass" type="password" placeholder="MonEhpad2025"/></div>
-    <button class="btn primary" onclick="doLogin()">Se connecter</button>
-    <p style="margin-top:10px;color:var(--muted);font-size:12px">Démo :<br/>Personnel : personnel@mon-ehpad.fr / MonEhpad2025<br/>Direction : direction@mon-ehpad.fr / MonEhpad2025</p>
-   </div>
-   <div class="card">
-    <h2>Notes</h2>
-    <p>Cette version sert à présenter le fonctionnement. Les données sont stockées sur l’appareil (pas de serveur).</p>
-    <div class="actions" style="margin-top:10px">
-      <button class="btn" onclick="ensureNotifyPermission().then(ok=>toast(ok?'Notifications autorisées.':'Notifications non autorisées.'))">Activer les notifications</button>
-      <button class="btn danger" onclick="resetAll()">Réinitialiser la démo</button>
-    </div>
-   </div>
-  </div>
- `));
-}
-function doLogin(){
- const email=document.getElementById("email").value.trim().toLowerCase();
- const pass=document.getElementById("pass").value;
- const a=ACC.find(x=>x.email===email && x.password===pass);
- if(!a) return toast("Identifiants invalides.");
- setSession({role:a.role,email:a.email,displayName:a.displayName,ts:now()});
- toast("Connexion réussie.");
- go(a.role==="direction"?"dir_dashboard":"home");
-}
-function logout(){clearSession();toast("Déconnecté.");go("login")}
-
-function homeView(){
- const p=load(K.p,DEF_PROFILE);
- render(layout("Mon Ehpad","Accueil",`
-  <div class="grid">
-   <div class="card">
-    <h2>Accueil</h2>
-    <p>Bienvenue, <strong>${esc(p.name)}</strong>.</p>
-    <hr class="sep"/>
-    <div class="row">
-      <a class="btn primary" href="mailto:adjointdirection.ehpad@parigne.org">Envoyer un mail</a>
-      <a class="btn" href="tel:0299973216">Appeler l'établissement</a>
-    </div>
-   </div>
-   <div class="card">
-    <h2>Raccourcis</h2>
-    <div class="row">
-      <button class="btn" onclick="go('exchange')">Demande d'échange</button>
-      <button class="btn primary" onclick="go('calendar')">Calendrier</button>
-    </div>
-   </div>
-  </div>
- `, nav("home")));
-}
-
-function openModal(html){
- const bg=document.getElementById("modalbg"); const m=document.getElementById("modal");
- m.innerHTML=html;
- bg.style.display="flex";
-}
-function closeModal(e){
- const bg=document.getElementById("modalbg");
- if(e && e.target && e.target.id!=="modalbg") return;
- bg.style.display="none";
- document.getElementById("modal").innerHTML="";
-}
-
-function calendarView(){
- const s=session();
- const st=load("_monehpad_cal_state", {y:(new Date()).getFullYear(), m:(new Date()).getMonth()});
- const y=st.y, m=st.m;
- const first=new Date(y,m,1);
- const startDow=(first.getDay()+6)%7; // Monday=0
- const daysInMonth=new Date(y,m+1,0).getDate();
- const prevDays=new Date(y,m,0).getDate();
- const grid=[];
- for(let i=0;i<42;i++){
-   const dayNum=i-startDow+1;
-   let date;
-   let muted=false;
-   if(dayNum<1){ date=new Date(y,m-1,prevDays+dayNum); muted=true; }
-   else if(dayNum>daysInMonth){ date=new Date(y,m+1,dayNum-daysInMonth); muted=true; }
-   else{ date=new Date(y,m,dayNum); }
-   const iso=date.toISOString().slice(0,10);
-   grid.push({iso,day:date.getDate(),muted});
- }
- const ex=load(K.e,[]);
- const ot=load(K.o,[]);
- const byDate={};
- for(const e of ex){
-   const d=e.date;
-   byDate[d]=byDate[d]||{swap:[],ot:[]};
-   byDate[d].swap.push(e);
- }
- for(const o of ot){
-   const d=o.date;
-   byDate[d]=byDate[d]||{swap:[],ot:[]};
-   byDate[d].ot.push(o);
- }
- const monthName=new Date(y,m,1).toLocaleDateString("fr-FR",{month:"long",year:"numeric"});
- const dows=["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
- render(layout("Mon Ehpad","Calendrier",`
-  <div class="card">
-    <div class="cal-head">
-      <button class="btn" onclick="calNav(-1)">←</button>
-      <div class="cal-title">${esc(monthName.charAt(0).toUpperCase()+monthName.slice(1))}</div>
-      <button class="btn" onclick="calNav(1)">→</button>
-    </div>
-    <div class="cal-grid">
-      ${dows.map(x=>`<div class="dow">${x}</div>`).join("")}
-      ${grid.map(g=>{
-        const info=byDate[g.iso];
-        let tags="";
-        if(info){
-          const swap=info.swap.length;
-          const otHours=info.ot.reduce((a,x)=>a+(x.hours||0),0);
-          if(swap){
-            // if any approved -> ok, else pending -> wait, else rejected -> no
-            const statuses = new Set(info.swap.map(x=>x.status));
-            const cls = statuses.has("approved")?"ok":(statuses.has("pending")?"wait":"no");
-            tags += `<span class="tag swap ${cls}">Échange</span>`;
-          }
-          if(otHours>0){
-            const hrs = (Math.round(otHours*100)/100).toString().replace(".",",");
-            tags += `<span class="tag ot">+${hrs}h</span>`;
-          }
-        }
-        return `<div class="day ${g.muted?'muted':''}" onclick="openDay('${g.iso}')"><div class="daynum">${g.day}</div><div class="tags">${tags}</div></div>`;
-      }).join("")}
-    </div>
-    <hr class="sep"/>
-    <div class="row">
-      <button class="btn primary" onclick="go('${s.role==="direction"?"dir_exchanges":"exchange"}')">Échanges</button>
-      <button class="btn" onclick="go('${s.role==="direction"?"dir_overtime":"overtime"}')">Heures sup</button>
-    </div>
-  </div>
- `, nav("calendar")));
-}
-function calNav(delta){
- const st=load("_monehpad_cal_state", {y:(new Date()).getFullYear(), m:(new Date()).getMonth()});
- let y=st.y, m=st.m+delta;
- if(m<0){m=11;y--}
- if(m>11){m=0;y++}
- save("_monehpad_cal_state",{y,m});
- calendarView();
-}
-function openDay(iso){
- const ex=load(K.e,[]).filter(x=>x.date===iso);
- const ot=load(K.o,[]).filter(x=>x.date===iso);
- const s=session();
- const exHtml = ex.length? ex.map(e=>{
-   const b=e.status==="approved"?`<span class="badge ok">Accepté</span>`:e.status==="rejected"?`<span class="badge no">Refusé</span>`:`<span class="badge wait">En attente</span>`;
-   return `<div class="item"><div class="top"><div><strong>${esc(e.requester||"")} → ${esc(e.target||"")}</strong><div class="meta">${esc(e.slot)}${e.message?` • “${esc(e.message)}”`:``}</div></div>${b}</div></div>`;
- }).join("") : `<p>Aucun échange.</p>`;
- const otHtml = ot.length? ot.map(o=>{
-   const b=o.status==="approved"?`<span class="badge ok">Validé</span>`:o.status==="rejected"?`<span class="badge no">Refusé</span>`:`<span class="badge wait">En attente</span>`;
-   return `<div class="item"><div class="top"><div><strong>${esc(o.who||"")}</strong><div class="meta">${esc(o.slot)} • ${o.hours.toFixed(2)} h${o.note?` • ${esc(o.note)}`:``}</div></div>${b}</div></div>`;
- }).join("") : `<p>Aucune heure sup.</p>`;
- const actions = (s.role==="direction")
-   ? `<div class="actions"><button class="btn" onclick="closeModal(event);go('dir_exchanges')">Valider échanges</button><button class="btn" onclick="closeModal(event);go('dir_overtime')">Valider heures sup</button></div>`
-   : `<div class="actions"><button class="btn primary" onclick="closeModal(event);go('exchange');prefillDate('${iso}')">Demander échange</button><button class="btn" onclick="closeModal(event);go('overtime');prefillOtDate('${iso}')">Ajouter heure sup</button></div>`;
- openModal(`<h3>${esc(fmtDay(iso))}</h3><p style="color:var(--muted);margin-top:0">Détails de la journée</p><hr class="sep"/>
-  <h3 style="margin-top:0">Échanges</h3>${exHtml}<hr class="sep"/>
-  <h3 style="margin-top:0">Heures supplémentaires</h3>${otHtml}<hr class="sep"/>${actions}`);
-}
-function prefillDate(iso){ save("_monehpad_prefill_date", iso); }
-function prefillOtDate(iso){ save("_monehpad_prefill_ot_date", iso); }
-
-function exchangeView(){
- const ex=load(K.e,[]);
- const pre=load("_monehpad_prefill_date", null);
- if(pre) localStorage.removeItem("_monehpad_prefill_date");
- render(layout("Mon Ehpad","Échange de poste",`
-  <div class="grid">
-    <div class="card">
-      <h2>Nouvelle demande</h2>
-      <div class="field"><label>Sélectionnez la personne</label><input id="ex_person" placeholder="Nom / Prénom"/></div>
-      <div class="row">
-        <div class="field"><label>Sélectionnez la date</label><input id="ex_date" type="date" value="${pre?esc(pre):""}"/></div>
-        <div class="field"><label>Message (optionnel)</label><input id="ex_msg" placeholder="Ex : peux-tu échanger ?"/></div>
-      </div>
-      <div class="field">
-        <label>Sélectionnez l'horaire</label>
-        <div class="row">
-          <button class="btn" id="slot_07001415" onclick="pickSlot('07:00 - 14:15','slot_07001415')">07:00 - 14:15</button>
-          <button class="btn" id="slot_07001430" onclick="pickSlot('07:00 - 14:30','slot_07001430')">07:00 - 14:30</button>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <button class="btn" id="slot_14002100" onclick="pickSlot('14:00 - 21:00','slot_14002100')">14:00 - 21:00</button>
-          <button class="btn" id="slot_14002130" onclick="pickSlot('14:00 - 21:30','slot_14002130')">14:00 - 21:30</button>
-        </div>
-        <input id="ex_slot" type="hidden"/>
-      </div>
-      <button class="btn primary" onclick="createExchange()">Envoyer la demande</button>
-      <p style="margin-top:10px;color:var(--muted);font-size:12px">Statut : en attente → validation direction.</p>
-    </div>
-
-    <div class="card">
-      <h2>Mes demandes</h2>
-      <div class="list">
-        ${ex.length?ex.map(renderExItem).join(""):`<p>Aucune demande.</p>`}
-      </div>
-    </div>
-  </div>
- `, nav("exchange")));
-}
-function pickSlot(label,id){
- document.getElementById("ex_slot").value=label;
- ["slot_07001415","slot_07001430","slot_14002100","slot_14002130"].forEach(x=>document.getElementById(x)?.classList.remove("primary"));
- document.getElementById(id)?.classList.add("primary");
-}
-async function createExchange(){
- const person=(document.getElementById("ex_person").value||"").trim();
- const date=document.getElementById("ex_date").value;
- const slot=document.getElementById("ex_slot").value;
- const msg=(document.getElementById("ex_msg").value||"").trim();
- if(!person||!date||!slot) return toast("Merci de renseigner la personne, la date et l'horaire.");
- const ex=load(K.e,[]); const s=session();
- ex.unshift({id:crypto.randomUUID(),requester:s?.displayName||"Personnel",target:person,date,slot,message:msg,status:"pending",createdAt:now()});
- save(K.e,ex);
- await notify("Mon Ehpad", "Demande d'échange envoyée (en attente de validation).");
- toast("Demande envoyée.");
- go("exchange");
-}
-function renderExItem(e){
- const b=e.status==="approved"?`<span class="badge ok">Accepté</span>`:e.status==="rejected"?`<span class="badge no">Refusé</span>`:`<span class="badge wait">En attente</span>`;
- return `<div class="item"><div class="top"><div><strong>${esc(e.target)}</strong><div class="meta">${esc(e.date)} • ${esc(e.slot)}${e.message?` • “${esc(e.message)}”`:``}</div></div>${b}</div></div>`;
-}
-
-function messagesView(){
- purgeMsg(30);
- const msgs=load(K.m,[]);
- render(layout("Mon Ehpad","Messagerie",`
-  <div class="card">
-    <div class="banner">
-      ${I.info}
-      <div><p><strong>Information</strong><br/>Les messages sont automatiquement supprimés après 30 jours pour économiser de l'espace.</p></div>
-    </div>
-    <div class="list">
-      ${msgs.length?msgs.map(m=>`<div class="item"><div class="top"><div><strong>${esc(m.from)}</strong><div class="meta">${fmtShort(m.ts)}</div></div></div><div style="margin-top:8px">${esc(m.text)}</div></div>`).join(""):`<p>Aucun message.</p>`}
-    </div>
-    <hr class="sep"/>
-    <div class="row">
-      <div class="field" style="flex:2"><label>Nouveau message</label><input id="msg_text" placeholder="Écrire un message..."/></div>
-      <div class="field" style="flex:1"><label>&nbsp;</label><button class="btn primary" onclick="sendMsg()">Envoyer</button></div>
-    </div>
-  </div>
- `, nav("messages")));
-}
-async function sendMsg(){
- const t=(document.getElementById("msg_text").value||"").trim(); if(!t) return;
- const msgs=load(K.m,[]); const s=session();
- msgs.unshift({id:crypto.randomUUID(),from:s?.displayName||"Moi",text:t,ts:now()});
- save(K.m,msgs); document.getElementById("msg_text").value="";
- await notify("Mon Ehpad", "Message envoyé.");
- toast("Message envoyé."); messagesView();
-}
-
-function overtimeView(){
- const all=load(K.o,[]);
- const mk=(new Date()).toISOString().slice(0,7);
- const items=all.filter(x=>x.monthKey===mk);
- const total=items.reduce((a,x)=>a+(x.hours||0),0);
- const pre=load("_monehpad_prefill_ot_date", null);
- if(pre) localStorage.removeItem("_monehpad_prefill_ot_date");
- render(layout("Mon Ehpad","Heures supplémentaires",`
-  <div class="grid">
-    <div class="card">
-      <h2>Ajouter une heure sup</h2>
-      <div class="row">
-        <div class="field"><label>Date</label><input id="ot_date" type="date" value="${pre?esc(pre):""}"/></div>
-        <div class="field"><label>Commentaire (optionnel)</label><input id="ot_note" placeholder="Ex : renfort, urgence..."/></div>
-      </div>
-      <div class="field">
-        <label>Sélectionnez l'horaire</label>
-        <div class="row">
-          <button class="btn" id="ot_07001415" onclick="pickOt('07:00 - 14:15',7.25,'ot_07001415')">07:00 - 14:15</button>
-          <button class="btn" id="ot_07001430" onclick="pickOt('07:00 - 14:30',7.5,'ot_07001430')">07:00 - 14:30</button>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <button class="btn" id="ot_14002100" onclick="pickOt('14:00 - 21:00',7.0,'ot_14002100')">14:00 - 21:00</button>
-          <button class="btn" id="ot_14002130" onclick="pickOt('14:00 - 21:30',7.5,'ot_14002130')">14:00 - 21:30</button>
-        </div>
-        <input id="ot_slot" type="hidden"/><input id="ot_hours" type="hidden"/>
-      </div>
-      <button class="btn primary" onclick="addOt()">Enregistrer</button>
-    </div>
-
-    <div class="card">
-      <h2>Récap du mois</h2>
-      <div class="row">
-        <div class="item" style="flex:1"><div class="top"><div><strong>${mk}</strong><div class="meta">Période</div></div><span class="badge">${items.length} entrées</span></div></div>
-        <div class="item" style="flex:1"><div class="top"><div><strong>${total.toFixed(2)} h</strong><div class="meta">Total</div></div><span class="badge">mensuel</span></div></div>
-      </div>
-      <div class="actions">
-        <button class="btn primary" onclick="exportCsv('${mk}')">Exporter CSV (mois)</button>
-      </div>
-      <hr class="sep"/>
-      <div class="list">${items.length?items.map(renderOt).join(""):`<p>Aucune heure sup pour ce mois.</p>`}</div>
-    </div>
-  </div>
- `, nav(role()==="direction"?"dir_overtime":"calendar")));
-}
-function pickOt(label,h,id){
- document.getElementById("ot_slot").value=label; document.getElementById("ot_hours").value=String(h);
- ["ot_07001415","ot_07001430","ot_14002100","ot_14002130"].forEach(x=>document.getElementById(x)?.classList.remove("primary"));
- document.getElementById(id)?.classList.add("primary");
-}
-async function addOt(){
- const date=document.getElementById("ot_date").value;
- const slot=document.getElementById("ot_slot").value;
- const hours=Number(document.getElementById("ot_hours").value||"0");
- const note=(document.getElementById("ot_note").value||"").trim();
- if(!date||!slot||!hours) return toast("Merci de renseigner la date et l'horaire.");
- const all=load(K.o,[]); const s=session();
- all.unshift({id:crypto.randomUUID(),who:s?.displayName||"Moi",date,monthKey:date.slice(0,7),slot,hours,note,status:"pending",createdAt:now()});
- save(K.o,all);
- await notify("Mon Ehpad", "Heure supplémentaire enregistrée (en attente).");
- toast("Heure sup enregistrée."); overtimeView();
-}
-function renderOt(o){
- const b=o.status==="approved"?`<span class="badge ok">Validé</span>`:o.status==="rejected"?`<span class="badge no">Refusé</span>`:`<span class="badge wait">En attente</span>`;
- return `<div class="item"><div class="top"><div><strong>${esc(o.date)}</strong><div class="meta">${esc(o.slot)} • ${o.hours.toFixed(2)} h${o.note?` • ${esc(o.note)}`:``}</div></div>${b}</div></div>`;
-}
-function exportCsv(mk){
- const all=load(K.o,[]).filter(x=>x.monthKey===mk);
- if(!all.length) return toast("Aucune donnée à exporter.");
- const head=["Date","Horaire","Heures","Statut","Commentaire","Agent"].join(";");
- const lines=all.map(o=>[o.date,o.slot,o.hours.toFixed(2),o.status,o.note||"",o.who||""].map(csvEsc).join(";"));
- const csv=[head,...lines].join("\n");
- const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
- const url=URL.createObjectURL(blob);
- const a=document.createElement("a");a.href=url;a.download=`Heures_supplementaires_${mk}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
- toast("CSV généré.");
-}
-function csvEsc(v){const s=String(v??"");return /[;"\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
-
-function profileView(){
- const p=load(K.p,DEF_PROFILE);
- render(layout("Mon Ehpad","Profil",`
-  <div class="grid">
-    <div class="card">
-      <h2>Informations</h2>
-      <div class="row">
-        <div class="field"><label>Nom</label><input id="p_name" value="${esc(p.name)}"/></div>
-        <div class="field"><label>Rôle</label><input id="p_role" value="${esc(p.role)}"/></div>
-      </div>
-      <div class="row">
-        <div class="field"><label>E-mail</label><input id="p_email" value="${esc(p.email)}"/></div>
-        <div class="field"><label>Téléphone</label><input id="p_phone" value="${esc(p.phone)}"/></div>
-      </div>
-      <button class="btn primary" onclick="saveProfile()">Enregistrer</button>
-    </div>
-    <div class="card">
-      <h2>Compte</h2>
-      <p>Tu peux basculer en mode Direction avec le compte direction.</p>
-      <div class="actions" style="margin-top:10px">
-        <button class="btn" onclick="logout()">Se déconnecter</button>
-        <button class="btn danger" onclick="resetAll()">Réinitialiser les données</button>
-      </div>
-    </div>
-  </div>
- `, nav("profile")));
-}
-function saveProfile(){
- save(K.p,{name:document.getElementById("p_name").value.trim(),role:document.getElementById("p_role").value.trim(),
-           email:document.getElementById("p_email").value.trim(),phone:document.getElementById("p_phone").value.trim()});
- toast("Profil mis à jour.");
-}
-
-function dirDashboard(){
- const ex=load(K.e,[]); const ot=load(K.o,[]);
- const pendEx=ex.filter(x=>x.status==="pending").length;
- const pendOt=ot.filter(x=>x.status==="pending").length;
- render(layout("Mon Ehpad","Direction",`
-  <div class="grid">
-    <div class="card">
-      <h2>Tableau de bord</h2><p>Supervision (démo locale).</p><hr class="sep"/>
-      <div class="row">
-        <div class="item"><div class="top"><div><strong>${pendEx}</strong><div class="meta">échanges en attente</div></div><span class="badge wait">à traiter</span></div></div>
-        <div class="item"><div class="top"><div><strong>${pendOt}</strong><div class="meta">heures sup en attente</div></div><span class="badge wait">à traiter</span></div></div>
-      </div>
-      <div class="actions">
-        <button class="btn primary" onclick="go('dir_exchanges')">Valider échanges</button>
-        <button class="btn primary" onclick="go('dir_overtime')">Valider heures sup</button>
-        <button class="btn" onclick="go('calendar')">Calendrier</button>
-      </div>
-    </div>
-    <div class="card">
-      <h2>Rappel</h2><p>Cette démo simule le flux complet (sans serveur). Pour la production : temps réel multi-utilisateurs via base centrale.</p>
-    </div>
-  </div>
- `, nav("dir_dashboard")));
-}
-function dirExchanges(){
- const ex=load(K.e,[]);
- render(layout("Mon Ehpad","Validation échanges",`
-  <div class="card">
-    <h2>Validation des échanges</h2><p>Accepter/refuser met à jour le statut.</p><hr class="sep"/>
-    <div class="list">${ex.length?ex.map(renderDirEx).join(""):`<p>Aucune demande.</p>`}</div>
-  </div>
- `, nav("dir_exchanges")));
-}
-function renderDirEx(e){
- const b=e.status==="approved"?`<span class="badge ok">Accepté</span>`:e.status==="rejected"?`<span class="badge no">Refusé</span>`:`<span class="badge wait">En attente</span>`;
- const act=e.status==="pending"?`<div class="actions"><button class="btn danger" onclick="setEx('${e.id}','rejected')">Refuser</button><button class="btn primary" onclick="setEx('${e.id}','approved')">Accepter</button></div>`:"";
- return `<div class="item"><div class="top"><div><strong>${esc(e.requester)} → ${esc(e.target)}</strong><div class="meta">${esc(e.date)} • ${esc(e.slot)}${e.message?` • “${esc(e.message)}”`:``}</div></div>${b}</div>${act}</div>`;
-}
-async function setEx(id,status){
- const ex=load(K.e,[]); const i=ex.findIndex(x=>x.id===id); if(i<0) return;
- ex[i].status=status; ex[i].reviewedAt=now(); save(K.e,ex);
- await notify("Mon Ehpad", status==="approved"?"Échange validé par la direction.":"Échange refusé par la direction.");
- toast("Statut mis à jour."); dirExchanges();
-}
-function dirOvertime(){
- const ot=load(K.o,[]);
- render(layout("Mon Ehpad","Validation heures sup",`
-  <div class="card">
-    <h2>Validation des heures supplémentaires</h2><p>Valider/refuser met à jour le statut.</p><hr class="sep"/>
-    <div class="list">${ot.length?ot.map(renderDirOt).join(""):`<p>Aucune heure sup.</p>`}</div>
-  </div>
- `, nav("dir_overtime")));
-}
-function renderDirOt(o){
- const b=o.status==="approved"?`<span class="badge ok">Validé</span>`:o.status==="rejected"?`<span class="badge no">Refusé</span>`:`<span class="badge wait">En attente</span>`;
- const act=o.status==="pending"?`<div class="actions"><button class="btn danger" onclick="setOt('${o.id}','rejected')">Refuser</button><button class="btn primary" onclick="setOt('${o.id}','approved')">Valider</button></div>`:"";
- return `<div class="item"><div class="top"><div><strong>${esc(o.who||"")}</strong><div class="meta">${esc(o.date)} • ${esc(o.slot)} • ${o.hours.toFixed(2)} h${o.note?` • ${esc(o.note)}`:``}</div></div>${b}</div>${act}</div>`;
-}
-async function setOt(id,status){
- const ot=load(K.o,[]); const i=ot.findIndex(x=>x.id===id); if(i<0) return;
- ot[i].status=status; ot[i].reviewedAt=now(); save(K.o,ot);
- await notify("Mon Ehpad", status==="approved"?"Heure supplémentaire validée.":"Heure supplémentaire refusée.");
- toast("Statut mis à jour."); dirOvertime();
-}
-
-function resetAll(){
- if(!confirm("Réinitialiser toutes les données de démonstration ?")) return;
- [K.s,K.p,K.m,K.e,K.o,"_monehpad_cal_state","_monehpad_prefill_date","_monehpad_prefill_ot_date"].forEach(k=>localStorage.removeItem(k));
- seed(); toast("Données réinitialisées."); go("login");
-}
-
-// Router
-function go(r){location.hash=r; route(r)}
-function route(r){
- const s=session();
- r = (r||"").replace(/^#/,"");
- if(!r) r = (s?.role==="direction")?"dir_dashboard":"home";
- if(r==="login") return loginView();
- if(!s) return loginView();
- if(s.role==="direction"){
-  if(r==="dir_dashboard") return dirDashboard();
-  if(r==="dir_exchanges") return dirExchanges();
-  if(r==="dir_overtime") return dirOvertime();
-  if(r==="calendar") return calendarView();
-  if(r==="messages") return messagesView();
-  // direction can use overtime view too
-  if(r==="overtime") return overtimeView();
-  return dirDashboard();
- } else {
-  if(r==="home") return homeView();
-  if(r==="calendar") return calendarView();
-  if(r==="exchange") return exchangeView();
-  if(r==="messages") return messagesView();
-  if(r==="profile") return profileView();
-  if(r==="overtime") return overtimeView();
-  return homeView();
- }
-}
-window.addEventListener("hashchange",()=>route(location.hash));
-route(location.hash);
+// Boot
+render();
+saveState(); // ensure seed persists
