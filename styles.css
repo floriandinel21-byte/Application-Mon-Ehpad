@@ -165,7 +165,7 @@ textarea{min-height:92px;resize:vertical}
 .main{
   flex:1;
   overflow:auto;
-  padding:12px 12px 84px;
+  padding:12px 12px 148px;
 }
 .tabbar{
   position:sticky;
@@ -279,15 +279,18 @@ textarea{min-height:92px;resize:vertical}
 }
 .bubble .time{margin-top:6px;font-size:10px;color:var(--muted)}
 .chatbar{
-  position:sticky;
-  bottom:0;
+  position:fixed;
+  bottom:68px;
+  left:50%;
+  transform:translateX(-50%);
+  width:min(420px,100%);
   display:flex;
   gap:8px;
-  padding:10px;
-  background: linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.35));
-  backdrop-filter: blur(10px);
+  padding:10px 12px;
+  background: linear-gradient(180deg, rgba(11,18,32,0), rgba(11,18,32,.96));
+  backdrop-filter: blur(12px);
   border-top:1px solid var(--line);
-  margin: 12px -12px -84px;
+  z-index:50;
 }
 .chatbar input{flex:1}
 .iconbtn.primary{
