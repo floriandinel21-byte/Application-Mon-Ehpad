@@ -539,7 +539,7 @@ function bubble(m, isMe){
   if(m.type === "swap"){
     return `<div class="bubble ${isMe?'me':''}">
       <div style="font-weight:850">📅 Proposition d'échange</div>
-      <div class="muted" style="margin-top:6px">${m.summary}</div>
+      <div style="margin-top:6px;font-size:13px">${m.summary}</div>
       <div class="time">${m.time}</div>
     </div>`;
   }
