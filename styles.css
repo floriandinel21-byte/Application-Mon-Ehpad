@@ -464,3 +464,68 @@ textarea{min-height:92px;resize:vertical}
 }
 .tag.me{ border-color: rgba(79,140,255,.35); color:#cfe0ff; background: rgba(79,140,255,.10);}
 .tag.unit{ border-color: rgba(50,213,131,.35); color:#c8f6df; background: rgba(50,213,131,.10);}
+
+/* ── Nuit violet ─────────────────────────────────────────────────────────────*/
+.dot.night{ background: rgba(168,85,247,.95); }
+.tag.night{ border-color:rgba(168,85,247,.35); color:#e5c8ff; background:rgba(168,85,247,.12); }
+.tag.soir{  border-color:rgba(255,159,67,.35); color:#ffe4b8; background:rgba(255,159,67,.12); }
+.tag.matin{ border-color:rgba(79,140,255,.35); color:#cfe0ff; background:rgba(79,140,255,.10); }
+
+/* ── KPI Grid ────────────────────────────────────────────────────────────────*/
+.kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+  margin-bottom:0;
+}
+.kpi-card{
+  background:rgba(255,255,255,.03);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:14px 10px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  text-align:center;
+}
+.kpi-icon{
+  width:34px;height:34px;border-radius:11px;
+  display:grid;place-items:center;flex-shrink:0;
+}
+.kpi-icon svg{width:18px;height:18px}
+.kpi-val{ font-size:22px;font-weight:900;line-height:1; }
+.kpi-label{ font-size:10px;color:var(--muted);line-height:1.3; }
+
+/* ── Avatars login ───────────────────────────────────────────────────────────*/
+.avatar-row{
+  display:flex;gap:10px;flex-wrap:wrap;
+  justify-content:center;
+  margin:14px 0 4px;
+}
+.avatar-chip{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  cursor:pointer;padding:10px 12px;border-radius:16px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.02);
+  transition:all .15s;
+  font-size:12px;color:var(--muted);
+}
+.avatar-chip.active{
+  background:rgba(79,140,255,.12);
+  border-color:rgba(79,140,255,.45);
+  color:var(--text);
+}
+.avatar-circle{
+  width:40px;height:40px;border-radius:14px;
+  display:grid;place-items:center;
+  font-weight:900;font-size:14px;
+  color:#fff;
+}
+
+/* ── Chat empty state ────────────────────────────────────────────────────────*/
+.chat-empty{
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:30px 20px;color:var(--muted);font-size:13px;text-align:center;
+}
+.chat-empty svg{width:32px;height:32px;opacity:.4}
