@@ -280,7 +280,7 @@ textarea{min-height:92px;resize:vertical}
 .bubble .time{margin-top:6px;font-size:10px;color:var(--muted)}
 .chatbar{
   position:fixed;
-  bottom:68px;
+  bottom:84px;
   left:50%;
   transform:translateX(-50%);
   width:min(420px,100%);
