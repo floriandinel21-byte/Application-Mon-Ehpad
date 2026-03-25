@@ -845,33 +845,20 @@ function viewAccount(){
 
 
 
-// ── Tag Picker ────────────────────────────────────────────────────────────────
+// ── Tag Picker (autocomplete) ─────────────────────────────────────────────────
 function renderTagPicker(id, currentValue){
-  const list = id === "p_allergies" ? ALLERGIES_LIST : MEDICATIONS_LIST;
   const selected = currentValue ? currentValue.split(",").map(s=>s.trim()).filter(Boolean) : [];
-  // tags that are custom (not in list)
-  const customSel = selected.filter(s => !list.includes(s));
-
-  const chips = list.map(opt => {
-    const isSel = selected.includes(opt);
-    return `<button type="button" class="tag-chip${isSel?" sel":""}" data-picker="${id}" data-val="${escHtml(opt)}">${escHtml(opt)}</button>`;
-  }).join("");
-
-  const customChips = customSel.map(s =>
-    `<span class="tag-custom-chip" data-val="${escHtml(s)}">${escHtml(s)} <span class="rm">✕</span></span>`
+  const selChips = selected.map(s =>
+    `<span class="tag-sel-chip" data-val="${escHtml(s)}">${escHtml(s)} <span class="rm">✕</span></span>`
   ).join("");
 
   return `
     <div class="tag-picker-wrap" id="${id}_wrap">
-      <div class="tag-picker-search-box">
-        <input class="tag-picker-search" id="${id}_search" placeholder="Rechercher…" autocomplete="off"/>
+      <div class="tag-picker-input-row">
+        <input class="tag-picker-search" id="${id}_search" placeholder="Rechercher ou saisir…" autocomplete="off"/>
       </div>
-      <div class="tag-picker-chips" id="${id}_chips">${chips}</div>
-      <div class="tag-picker-custom-row">
-        <input class="tag-picker-custom-input" id="${id}_custom" placeholder="Ajouter manuellement…" autocomplete="off"/>
-        <button type="button" class="btn small ghost" id="${id}_addBtn">+ Ajouter</button>
-      </div>
-      ${customSel.length ? `<div class="tag-custom-list" id="${id}_customList">${customChips}</div>` : `<div class="tag-custom-list" id="${id}_customList"></div>`}
+      <ul class="tag-suggestions hidden" id="${id}_sugg"></ul>
+      <div class="tag-sel-list" id="${id}_sel">${selChips}</div>
     </div>`;
 }
 
@@ -880,58 +867,61 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 function bindTagPickers(){
   ["p_allergies","p_treatments"].forEach(id=>{
     const wrap = document.getElementById(id+"_wrap"); if(!wrap) return;
-
-    // Search filter
+    const list = id==="p_allergies" ? ALLERGIES_LIST : MEDICATIONS_LIST;
     const search = document.getElementById(id+"_search");
-    const chipsDiv = document.getElementById(id+"_chips");
-    search?.addEventListener("input",()=>{
-      const q = search.value.toLowerCase().trim();
-      chipsDiv.querySelectorAll(".tag-chip").forEach(chip=>{
-        const match = !q || chip.getAttribute("data-val").toLowerCase().includes(q);
-        chip.style.display = match ? "" : "none";
-      });
-    });
+    const sugg   = document.getElementById(id+"_sugg");
+    const selDiv = document.getElementById(id+"_sel");
 
-    // Toggle chip selection
-    chipsDiv?.addEventListener("click", e=>{
-      const chip = e.target.closest(".tag-chip"); if(!chip) return;
-      chip.classList.toggle("sel");
-    });
+    function getSelected(){ return [...selDiv.querySelectorAll(".tag-sel-chip")].map(c=>c.getAttribute("data-val")); }
 
-    // Add custom
-    const customInput = document.getElementById(id+"_custom");
-    const addBtn = document.getElementById(id+"_addBtn");
-    const customList = document.getElementById(id+"_customList");
-
-    function addCustom(){
-      const val = (customInput?.value||"").trim(); if(!val) return;
-      // Check it's not already in list as a chip
-      const existing = chipsDiv.querySelector(`.tag-chip[data-val="${val}"]`);
-      if(existing){ existing.classList.add("sel"); customInput.value=""; return; }
+    function addItem(val){
+      val = val.trim(); if(!val) return;
+      if(getSelected().includes(val)) return;
       const span = document.createElement("span");
-      span.className = "tag-custom-chip";
+      span.className = "tag-sel-chip";
       span.setAttribute("data-val", val);
       span.innerHTML = escHtml(val)+` <span class="rm">✕</span>`;
       span.querySelector(".rm").addEventListener("click",()=>span.remove());
-      customList.appendChild(span);
-      customInput.value = "";
+      selDiv.appendChild(span);
+      search.value = "";
+      sugg.innerHTML = ""; sugg.classList.add("hidden");
     }
 
-    addBtn?.addEventListener("click", addCustom);
-    customInput?.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); addCustom(); } });
+    // Bind remove on pre-existing chips
+    selDiv.querySelectorAll(".tag-sel-chip .rm").forEach(rm=>rm.addEventListener("click",()=>rm.closest(".tag-sel-chip").remove()));
 
-    // Existing custom chips remove
-    wrap.querySelectorAll(".tag-custom-chip .rm").forEach(rm=>{
-      rm.addEventListener("click",()=>rm.closest(".tag-custom-chip").remove());
+    search.addEventListener("input",()=>{
+      const q = search.value.toLowerCase().trim();
+      if(!q){ sugg.innerHTML=""; sugg.classList.add("hidden"); return; }
+      const matches = list.filter(s=>s.toLowerCase().includes(q) && !getSelected().includes(s)).slice(0,8);
+      if(!matches.length){ sugg.innerHTML=""; sugg.classList.add("hidden"); return; }
+      sugg.innerHTML = matches.map(m=>`<li data-val="${escHtml(m)}">${escHtml(m)}</li>`).join("");
+      sugg.classList.remove("hidden");
     });
+
+    sugg.addEventListener("click", e=>{
+      const li = e.target.closest("li"); if(!li) return;
+      addItem(li.getAttribute("data-val"));
+    });
+
+    search.addEventListener("keydown", e=>{
+      if(e.key==="Enter"){
+        e.preventDefault();
+        const first = sugg.querySelector("li");
+        if(first) addItem(first.getAttribute("data-val"));
+        else if(search.value.trim()) addItem(search.value);
+      }
+      if(e.key==="Escape"){ sugg.innerHTML=""; sugg.classList.add("hidden"); }
+    });
+
+    // Close suggestions on outside click
+    document.addEventListener("click", e=>{ if(!wrap.contains(e.target)){ sugg.innerHTML=""; sugg.classList.add("hidden"); } }, {capture:true});
   });
 }
 
 function readTagPicker(id){
-  const wrap = document.getElementById(id+"_wrap"); if(!wrap) return "";
-  const fromChips = [...wrap.querySelectorAll(".tag-chip.sel")].map(c=>c.getAttribute("data-val"));
-  const fromCustom = [...wrap.querySelectorAll(".tag-custom-chip")].map(c=>c.getAttribute("data-val"));
-  return [...fromChips,...fromCustom].join(", ");
+  const selDiv = document.getElementById(id+"_sel"); if(!selDiv) return "";
+  return [...selDiv.querySelectorAll(".tag-sel-chip")].map(c=>c.getAttribute("data-val")).join(", ");
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
