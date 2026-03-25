@@ -496,8 +496,26 @@ function viewProfileAgent(){
       <div class="field" style="margin-top:10px"><label>Poids (kg)</label><input id="p_weight" type="number" value="${p.weightKg||""}" placeholder="65"/></div>
       <div class="hr"></div>
       <div class="section-title">Santé</div>
-      <div class="field"><label>Allergies connues</label><textarea id="p_allergies" placeholder="Ex: Pénicilline…">${p.allergies||""}</textarea></div>
-      <div class="field" style="margin-top:10px"><label>Traitements en cours</label><textarea id="p_treatments" placeholder="Ex: Lévothyrox 50µg…">${p.treatments||""}</textarea></div>
+      <div class="field">
+        <label>Allergies connues</label>
+        ${tagPicker("p_allergies", p.allergies||"", [
+          "Aucune connue","Pénicilline","Amoxicilline","Aspirine","AINS","Codeïne",
+          "Sulfamides","Iode","Latex","Arachides","Fruits à coque","Gluten","Lactose",
+          "Œufs","Soja","Poissons","Crustacés","Moisissures","Pollen","Acariens"
+        ])}
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>Traitements en cours</label>
+        ${tagPicker("p_treatments", p.treatments||"", [
+          "Aucun traitement","Doliprane 1g","Ibuprofène","Aspirine 100mg",
+          "Lévothyrox 50µg","Lévothyrox 75µg","Lévothyrox 100µg",
+          "Metformine 500mg","Metformine 850mg","Insuline",
+          "Amlodipine 5mg","Bisoprolol 5mg","Ramipril 5mg","Atorvastatine 20mg",
+          "Oméprazole 20mg","Pantoprazole 40mg",
+          "Sertraline 50mg","Escitalopram 10mg","Lorazépam 1mg",
+          "Ventoline (inhalateur)","Symbicort","Cortancyl 5mg"
+        ])}
+      </div>
       <div class="field" style="margin-top:10px"><label>Groupe sanguin</label><input id="p_blood" value="${p.bloodType||""}" placeholder="Ex: O+"/></div>
       <div class="field" style="margin-top:10px"><label>Notes</label><textarea id="p_notes" placeholder="Ex: asthme léger…">${p.notes||""}</textarea></div>
       <div class="hr"></div>
@@ -640,6 +658,61 @@ function viewAccount(){
     </div>`;
 }
 
+
+// ── Tag picker (allergies / traitements) ──────────────────────────────────────
+function tagPicker(id, currentValue, options){
+  const selected = currentValue ? currentValue.split(",").map(s=>s.trim()).filter(Boolean) : [];
+  return `
+    <div class="tag-picker" id="${id}_picker">
+      <div class="tag-picker-chips">
+        ${options.map(opt => {
+          const isSel = selected.includes(opt);
+          return `<button type="button" class="tag-chip ${isSel?'sel':''}" data-picker="${id}" data-val="${escapeHtml(opt)}">${escapeHtml(opt)}</button>`;
+        }).join("")}
+      </div>
+      <div class="tag-picker-custom">
+        <input id="${id}_custom" placeholder="Autre… (Entrée pour ajouter)" style="flex:1"/>
+        <button type="button" class="iconbtn" id="${id}_add">${icons.plus}</button>
+      </div>
+      <div class="tag-picker-selected" id="${id}_selected">
+        ${selected.filter(s=>!options.includes(s)).map(s=>`<span class="tag-custom-chip" data-picker="${id}" data-val="${escapeHtml(s)}">${escapeHtml(s)} ✕</span>`).join("")}
+      </div>
+    </div>`;
+}
+
+function readTagPicker(id){
+  const picker = document.getElementById(id+"_picker"); if(!picker) return "";
+  const chips = [...picker.querySelectorAll(".tag-chip.sel")].map(c=>c.getAttribute("data-val"));
+  const custom = [...picker.querySelectorAll(".tag-custom-chip")].map(c=>c.getAttribute("data-val"));
+  return [...chips,...custom].join(", ");
+}
+
+function bindTagPickers(){
+  document.querySelectorAll(".tag-chip").forEach(chip=>{
+    chip.addEventListener("click",()=>{
+      chip.classList.toggle("sel");
+    });
+  });
+  document.querySelectorAll("[id$='_add']").forEach(btn=>{
+    const pickerId = btn.id.replace("_add","");
+    const input = document.getElementById(pickerId+"_custom");
+    const selectedDiv = document.getElementById(pickerId+"_selected");
+    function addCustom(){
+      const val = (input.value||"").trim(); if(!val) return;
+      const span = document.createElement("span");
+      span.className = "tag-custom-chip";
+      span.setAttribute("data-picker", pickerId);
+      span.setAttribute("data-val", val);
+      span.textContent = val+" ✕";
+      span.addEventListener("click",()=>span.remove());
+      selectedDiv.appendChild(span);
+      input.value = "";
+    }
+    btn.addEventListener("click", addCustom);
+    input?.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); addCustom(); } });
+  });
+}
+
 // ── Handlers ──────────────────────────────────────────────────────────────────
 function attachHandlers(tabId){
   if(tabId==="planning"){
@@ -697,10 +770,13 @@ function attachHandlers(tabId){
   }
 
   if(tabId==="profil"){
+    bindTagPickers();
     document.getElementById("btnSaveProfile")?.addEventListener("click",()=>{
       const u=me(), p=state.profiles[u.id]||{userId:u.id};
       ["p_birth","p_height","p_weight"].forEach(id=>p[{p_birth:"birthDate",p_height:"heightCm",p_weight:"weightKg"}[id]]=document.getElementById(id).value);
-      ["p_allergies","p_treatments","p_blood","p_notes","p_em_name","p_em_phone"].forEach(id=>p[{p_allergies:"allergies",p_treatments:"treatments",p_blood:"bloodType",p_notes:"notes",p_em_name:"emergencyName",p_em_phone:"emergencyPhone"}[id]]=document.getElementById(id).value.trim());
+      p.allergies = readTagPicker("p_allergies");
+      p.treatments = readTagPicker("p_treatments");
+      ["p_blood","p_notes","p_em_name","p_em_phone"].forEach(id=>p[{p_blood:"bloodType",p_notes:"notes",p_em_name:"emergencyName",p_em_phone:"emergencyPhone"}[id]]=document.getElementById(id).value.trim());
       p.updatedAt=new Date().toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"}); state.profiles[u.id]=p; saveState();
       document.getElementById("profileSaved").textContent="Dernière mise à jour : "+p.updatedAt; toast("Profil enregistré ✅");
     });
