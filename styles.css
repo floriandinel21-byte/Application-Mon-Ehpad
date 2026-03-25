@@ -567,3 +567,6 @@ textarea{min-height:92px;resize:vertical}
   padding:1px 4px;
 }
 .tag-sel-chip .rm:hover{ opacity:1; background:rgba(255,79,109,.35); }
+
+.tag.journee{ border-color:rgba(255,159,67,.35); color:#ffe4b8; background:rgba(255,159,67,.12); }
+.dot.journee{ background:rgba(255,159,67,.95); }
