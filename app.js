@@ -1,3 +1,200 @@
+// ── Listes médicales ─────────────────────────────────────────────────────────
+const ALLERGIES_LIST = [
+  // Médicaments
+  "Pénicilline","Amoxicilline","Ampicilline","Céphalosporines","Tétracyclines",
+  "Macrolides","Fluoroquinolones","Sulfamides","Métronidazole","Clindamycine",
+  "Vancomycine","Rifampicine","Nitrofurantoïne",
+  "Aspirine","AINS (Ibuprofène, Kétoprofène…)","Paracétamol","Morphine","Codeïne",
+  "Tramadol","Diclofénac","Naproxène","Célécoxib","Cortisone","Méthotrexate",
+  "Warfarine","Héparine","AOD (Xarelto, Eliquis…)",
+  "IEC (Ramipril, Périndopril…)","Bêtabloquants","Inhibiteurs calciques",
+  "Diurétiques (Furosémide…)","Statines (Atorvastatine…)","Amiodarone",
+  "Benzodiazépines","Neuroleptiques","Antidépresseurs (ISRS)","Lithium",
+  "Antiépileptiques (Carbamazépine…)","Phénytoïne","Valproate","Gabapentine",
+  "Insuline","Metformine","Sulfamides hypoglycémiants",
+  "Produits de contraste iodés","Iode","Latex","Chlorhexidine",
+  "Vaccin grippe","Vaccin pneumocoque","Anesthésiques locaux","Curares",
+  "Produits de contraste gadolinium",
+  // Alimentaires
+  "Arachides","Fruits à coque","Lait de vache (lactose)","Protéines lait de vache",
+  "Œufs","Gluten (blé, seigle, orge)","Soja","Poissons","Crustacés","Mollusques",
+  "Céleri","Moutarde","Sésame","Lupin","Sulfites","Kiwi","Banane","Avocat",
+  // Environnementales
+  "Pollen (graminées)","Pollen (arbres)","Acariens","Moisissures",
+  "Poils de chat","Poils de chien","Poils de lapin","Plumes","Venin d'abeille","Venin de guêpe",
+  "Nickel","Chrome","Parfums / conservateurs","Laine",
+];
+
+const MEDICATIONS_LIST = [
+  // Antalgiques
+  "Paracétamol 500mg","Paracétamol 1g","Ibuprofène 200mg","Ibuprofène 400mg",
+  "Aspirine 100mg","Aspirine 500mg","Tramadol 50mg","Tramadol LP 100mg",
+  "Tramadol LP 200mg","Codéine 30mg","Tramadol/Paracétamol","Morphine LP 10mg",
+  "Morphine LP 30mg","Morphine LP 60mg","Morphine à libération immédiate",
+  "Oxycodone LP 5mg","Oxycodone LP 10mg","Fentanyl patch 12µg","Fentanyl patch 25µg",
+  "Prégabaline 75mg","Prégabaline 150mg","Gabapentine 300mg","Gabapentine 600mg",
+  "Kétoprofène","Diclofénac","Célécoxib 100mg","Célécoxib 200mg","Néfopam",
+  // Cardio-vasculaire
+  "Bisoprolol 1,25mg","Bisoprolol 2,5mg","Bisoprolol 5mg","Bisoprolol 10mg",
+  "Métoprolol 50mg","Métoprolol 100mg","Aténolol 50mg","Aténolol 100mg","Carvédilol 6,25mg",
+  "Amlodipine 5mg","Amlodipine 10mg","Félodipine 5mg","Vérapamil 120mg","Diltiazem 60mg",
+  "Ramipril 1,25mg","Ramipril 2,5mg","Ramipril 5mg","Ramipril 10mg",
+  "Périndopril 4mg","Périndopril 8mg","Énalapril 5mg","Énalapril 10mg",
+  "Lisinopril 5mg","Lisinopril 10mg","Captopril 25mg",
+  "Irbésartan 75mg","Irbésartan 150mg","Irbésartan 300mg",
+  "Valsartan 80mg","Valsartan 160mg","Losartan 25mg","Losartan 50mg","Losartan 100mg",
+  "Candésartan 4mg","Candésartan 8mg","Candésartan 16mg","Olmésartan 10mg","Olmésartan 20mg",
+  "Furosémide 20mg","Furosémide 40mg","Torasémide 5mg","Torasémide 10mg",
+  "Hydrochlorothiazide 12,5mg","Hydrochlorothiazide 25mg","Indapamide 1,5mg",
+  "Spironolactone 25mg","Spironolactone 50mg","Éplérénone 25mg","Éplérénone 50mg",
+  "Atorvastatine 10mg","Atorvastatine 20mg","Atorvastatine 40mg","Atorvastatine 80mg",
+  "Simvastatine 10mg","Simvastatine 20mg","Simvastatine 40mg","Rosuvastatine 5mg",
+  "Rosuvastatine 10mg","Rosuvastatine 20mg","Pravastatine 20mg","Pravastatine 40mg",
+  "Ézétimibe 10mg","Ézétimibe + Simvastatine","Fénofibrate 145mg","Gemfibrozil 600mg",
+  "Digoxine 0,25mg","Amiodarone 200mg","Flécaïnide 50mg","Flécaïnide 100mg",
+  "Ivabradine 5mg","Ivabradine 7,5mg","Nicorandil","Isosorbide dinitrate",
+  "Trinitrine spray","Trinitrine patch","Molsidomine","Nébivolol 5mg",
+  // Anticoagulants / Antiagrégants
+  "Warfarine (Coumadine)","Acénocoumarol (Sintrom)","Héparinothérapie SC",
+  "Rivaroxaban (Xarelto) 15mg","Rivaroxaban (Xarelto) 20mg",
+  "Apixaban (Eliquis) 2,5mg","Apixaban (Eliquis) 5mg",
+  "Dabigatran (Pradaxa) 75mg","Dabigatran (Pradaxa) 110mg","Dabigatran (Pradaxa) 150mg",
+  "Aspirine 75mg (antiagrégant)","Aspirine 100mg (antiagrégant)",
+  "Clopidogrel 75mg","Prasugrel 10mg","Ticagrélor 90mg",
+  // Diabète
+  "Metformine 500mg","Metformine 850mg","Metformine 1000mg","Metformine LP 500mg",
+  "Glibenclamide 5mg","Gliclazide 30mg LP","Gliclazide 60mg LP","Glimépiride 1mg","Glimépiride 2mg","Glimépiride 4mg",
+  "Sitagliptine 100mg","Vildagliptine 50mg","Saxagliptine 5mg","Alogliptine 25mg",
+  "Empagliflozine 10mg","Empagliflozine 25mg","Dapagliflozine 10mg","Canagliflozine 100mg",
+  "Liraglutide (Victoza)","Sémaglutide SC (Ozempic)","Sémaglutide oral (Rybelsus)",
+  "Dulaglutide (Trulicity)","Exénatide (Bydureon)",
+  "Insuline Glargine (Lantus/Toujeo)","Insuline Dégludec (Tresiba)",
+  "Insuline Détémir (Levemir)","Insuline Asparte (NovoRapid)",
+  "Insuline Lispro (Humalog)","Insuline Glulisine (Apidra)",
+  "Insuline NPH (Insulatard)","Insuline Mixte 30/70",
+  "Acarbose 50mg","Acarbose 100mg","Répaglinide 0,5mg","Répaglinide 1mg","Répaglinide 2mg",
+  // Thyroïde
+  "Lévothyroxine (Levothyrox) 25µg","Lévothyroxine (Levothyrox) 50µg",
+  "Lévothyroxine (Levothyrox) 75µg","Lévothyroxine (Levothyrox) 100µg",
+  "Lévothyroxine (Levothyrox) 125µg","Lévothyroxine (Levothyrox) 150µg",
+  "Lévothyroxine (Levothyrox) 175µg","Lévothyroxine (Levothyrox) 200µg",
+  "Carbimazole 5mg","Carbimazole 20mg","Propylthiouracile","Iode radioactif",
+  // Rhumatologie / Os
+  "Alendronate (Fosamax) 70mg","Risédronate (Actonel) 35mg","Ibandronate (Bonviva)",
+  "Zolédronate (Aclasta) IV","Dénosumab (Prolia) SC","Tériparatide (Forsteo) SC",
+  "Métotrexate 2,5mg","Métotrexate 10mg","Leflunomide 20mg",
+  "Hydroxychloroquine 200mg","Sulfasalazine 500mg",
+  "Colchicine 0,5mg","Colchicine 1mg","Allopurinol 100mg","Allopurinol 200mg","Allopurinol 300mg",
+  "Fébuxostat 80mg","Fébuxostat 120mg","Probénécide","Rasburicase",
+  "Calcium 500mg","Calcium 1000mg","Vitamine D 800 UI","Vitamine D 1000 UI","Vitamine D 100 000 UI (ampoule)",
+  "Calcium + Vitamine D (Cacit D3, Uvedose…)","Magnésium 300mg","Zinc 15mg",
+  // Neurologie / Psychiatrie
+  "Sertraline 50mg","Sertraline 100mg","Escitalopram 10mg","Escitalopram 20mg",
+  "Fluoxétine 20mg","Paroxétine 20mg","Citalopram 20mg","Fluvoxamine 50mg",
+  "Venlafaxine LP 37,5mg","Venlafaxine LP 75mg","Venlafaxine LP 150mg",
+  "Duloxétine 30mg","Duloxétine 60mg","Mirtazapine 15mg","Mirtazapine 30mg",
+  "Amitriptyline 25mg","Amitriptyline 50mg","Clomipramine 25mg","Imipramine 25mg",
+  "Maprotiline 25mg","Tianeptine 12,5mg","Agomélatine 25mg","Vortioxétine 10mg",
+  "Halopéridol 1mg","Halopéridol 5mg","Rispéridone 0,5mg","Rispéridone 1mg","Rispéridone 2mg",
+  "Olanzapine 5mg","Olanzapine 10mg","Quétiapine 25mg","Quétiapine 100mg","Quétiapine 200mg",
+  "Aripiprazole 10mg","Aripiprazole 15mg","Clozapine 25mg","Clozapine 100mg",
+  "Lévomépromazine 25mg","Cyamémazine 25mg","Amisulpride 50mg","Amisulpride 200mg",
+  "Lorazépam 0,5mg","Lorazépam 1mg","Lorazépam 2,5mg","Alprazolam 0,25mg","Alprazolam 0,5mg",
+  "Diazépam 2mg","Diazépam 5mg","Diazépam 10mg","Oxazépam 10mg","Oxazépam 50mg",
+  "Bromazépam 6mg","Prazépam 10mg","Clorazépate 10mg",
+  "Zolpidem 5mg","Zolpidem 10mg","Zopiclone 3,75mg","Zopiclone 7,5mg","Mélatonine 1mg","Mélatonine 2mg LP",
+  "Prégabaline 25mg","Prégabaline 50mg","Clonazépam 0,5mg","Clonazépam 2mg",
+  "Lévétiracétam 250mg","Lévétiracétam 500mg","Lévétiracétam 1000mg",
+  "Valproate 200mg","Valproate 500mg","Valproate 1000mg","Lamotrigine 25mg","Lamotrigine 100mg",
+  "Topiramate 25mg","Topiramate 50mg","Phénobarbital 15mg","Phénobarbital 100mg",
+  "Oxcarbazépine 150mg","Oxcarbazépine 300mg","Carbamazépine 200mg","Carbamazépine 400mg",
+  "Lacosamide 50mg","Lacosamide 100mg","Pérampanel 2mg","Pérampanel 4mg",
+  "Donépézil 5mg","Donépézil 10mg","Rivastigmine 1,5mg","Rivastigmine patch","Galantamine 8mg LP",
+  "Mémantine 10mg","Mémantine 20mg","Mémantine LP 28mg",
+  "Méthylphénidate 10mg","Méthylphénidate LP 18mg","Méthylphénidate LP 36mg",
+  "Lévodopa/Bensérazide (Modopar)","Lévodopa/Carbidopa (Sinemet)","Pramipexole 0,18mg",
+  "Pramipexole LP 0,26mg","Ropinirole 0,25mg","Ropinirole LP 2mg","Rasagiline 1mg",
+  "Sélégiline 5mg","Entacapone 200mg","Amantadine 100mg","Baclofène 10mg","Baclofène 25mg",
+  "Tizanidine 2mg","Tétrabénazine 25mg","Bétahistine 8mg","Bétahistine 16mg",
+  // Pneumologie / Respiratoire
+  "Salbutamol spray (Ventoline)","Salbutamol nébulisation","Ipratropium spray",
+  "Formotérol","Salmétérol","Indacatérol","Olodatérol",
+  "Tiotropium (Spiriva)","Glycopyrronium","Aclidinium","Uméclidinium",
+  "Budésonide inhalé","Béclométasone inhalée","Fluticasone inhalée","Ciclésonide inhalé",
+  "Budésonide/Formotérol (Symbicort)","Fluticasone/Salmétérol (Seretide)",
+  "Béclométasone/Formotérol (Foster)","Fluticasone/Vilanterol (Relvar)",
+  "Tiotropium/Olodatérol (Spiolto)","Indacatérol/Glycopyrronium (Ultibro)",
+  "Roflumilast 500µg","Théophylline LP 200mg","Théophylline LP 400mg",
+  "Montelukast 10mg","Zafirlukast 20mg","Cromolyn","Kétotifène 1mg",
+  "Prednisone 1mg","Prednisone 5mg","Prednisolone 5mg","Méthylprednisolone 4mg",
+  "Dexaméthasone 0,5mg","Dexaméthasone 4mg","Bétaméthasone 0,5mg",
+  "Acétylcystéine (Mucomyst) 200mg","Acétylcystéine 600mg","Carbocistéine","Ambroxol",
+  // Digestif / Hépatologie
+  "Oméprazole 10mg","Oméprazole 20mg","Oméprazole 40mg",
+  "Ésoméprazole 20mg","Ésoméprazole 40mg","Lansoprazole 15mg","Lansoprazole 30mg",
+  "Pantoprazole 20mg","Pantoprazole 40mg","Rabéprazole 10mg","Rabéprazole 20mg",
+  "Ranitidine 150mg","Famotidine 20mg","Cimétidine 200mg","Antacides (Maalox, Gaviscon…)",
+  "Métoclopramide 10mg","Dompéridone 10mg","Ondansétron 4mg","Ondansétron 8mg",
+  "Granisétron 1mg","Métopimazine","Méclozine","Trimétazidine",
+  "Colestyramine 4g","Lopéramide 2mg","Racécadotril 100mg","Diosmectite (Smecta)",
+  "Lactulose","Macrogol (Forlax, Movicol)","Bisacodyl 5mg","Séné","Glycérine suppositoire",
+  "Prucalopride 1mg","Prucalopride 2mg","Lubiprostone 8µg","Linaclotide 72µg",
+  "Mébévérine 135mg","Phloroglucinol 80mg","Trimébutine 100mg","Alvérine 40mg",
+  "Mesalazine 400mg","Mesalazine 800mg","Mesalazine 1g","Mesalazine LP","Budésonide colite",
+  "Azathioprine 50mg","Mercaptopurine 50mg","Infliximab","Adalimumab","Védolizumab",
+  "Ursodéoxycholique (AUDC) 250mg","Ursodéoxycholique 500mg","Cholestyramine",
+  // Infectiologie / Antibiotiques
+  "Amoxicilline 500mg","Amoxicilline 1g","Amoxicilline + Acide clavulanique 500mg/125mg",
+  "Amoxicilline + Acide clavulanique 1g/125mg","Ampicilline","Pivmécillinam 200mg",
+  "Céfixime 200mg","Céfuroxime 250mg","Céfuroxime 500mg","Céfpodoxime 100mg","Céfadroxil 500mg",
+  "Doxycycline 100mg","Minocycline 100mg","Tétracycline 250mg",
+  "Azithromycine 250mg","Azithromycine 500mg","Clarithromycine 250mg","Clarithromycine 500mg",
+  "Érythromycine 500mg","Spiramycine 1,5M UI","Josamycine 500mg",
+  "Ciprofloxacine 250mg","Ciprofloxacine 500mg","Lévofloxacine 250mg","Lévofloxacine 500mg",
+  "Moxifloxacine 400mg","Norfloxacine 400mg","Ofloxacine 200mg",
+  "Triméthoprime + Sulfaméthoxazole (Bactrim)","Fosfomycine 3g (sachet)",
+  "Métronidazole 250mg","Métronidazole 500mg","Métronidazole ovule","Ornidazole 500mg",
+  "Rifampicine 150mg","Rifampicine 300mg","Isoniazide","Éthambutol","Pyrazinamide",
+  "Aciclovir 200mg","Aciclovir 400mg","Valaciclovir 500mg","Valaciclovir 1g",
+  "Famciclovir 125mg","Famciclovir 250mg","Oseltamivir (Tamiflu) 75mg",
+  "Fluconazole 50mg","Fluconazole 150mg","Itraconazole 100mg","Terbinafine 250mg",
+  // Hématologie / Oncologie
+  "Fer oral (Tardyferon, Timoférol)","Vitamine B12 injectable","Acide folique 5mg",
+  "Érythropoïétine SC (EPO)","Darbépoétine SC (Aranesp)","Facteurs de croissance (G-CSF)",
+  "Hydroxyurée 500mg","Imatinib 100mg","Imatinib 400mg","Rituximab IV",
+  "Tamoxifène 20mg","Anastrozole 1mg","Létrozole 2,5mg","Exémestane 25mg",
+  // Urologie / Néphrologie
+  "Alfuzosine 10mg LP","Tamsulosine 0,4mg LP","Silodosine 8mg","Térazosine 2mg",
+  "Finastéride 5mg","Dutastéride 0,5mg","Solifénacine 5mg","Solifénacine 10mg",
+  "Oxybutynine 5mg","Toltérodine LP 4mg","Mirabégron 25mg","Mirabégron 50mg",
+  "Fésotérodine 4mg","Fésotérodine 8mg","Darifénacine 7,5mg LP",
+  "Phosphate de codéine","Chlorure de sodium 0,9% NaCl","Bicarbonate de sodium",
+  // Ophtalmologie / ORL
+  "Timolol collyre 0,1%","Timolol collyre 0,5%","Bimatoprost collyre","Latanoprost collyre",
+  "Travoprost collyre","Brinzolamide collyre","Dorzolamide collyre","Acétazolamide 250mg",
+  "Prednisolone collyre","Dexaméthasone collyre","Antibiotique collyre (Tobramycine…)",
+  "Chloramphénicol collyre","Acide hyaluronique collyre (larmes artificielles)",
+  "Antihistaminiques oraux (Cétirizine 10mg, Loratadine 10mg, Bilastine 20mg)",
+  "Desloratadine 5mg","Fexofénadine 120mg","Lévocétirizine 5mg",
+  "Béclométasone nasale","Fluticasone nasale","Mométasone nasale",
+  "Pseudoéphédrine","Oxymétazoline spray nasal (Rhinofluimucil)",
+  "Corticostéroïdes auriculaires","Antibiotiques auriculaires",
+  // Dermatologie
+  "Dermocorticoïdes (hydrocortisone 1%)","Dermocorticoïdes fort (bétaméthasone 0,1%)",
+  "Tacrolimus pommade 0,03%","Tacrolimus pommade 0,1%","Pimécrolimus crème",
+  "Terbinafine crème","Miconazole crème","Kétoconazole shampooing",
+  "Perméthrine crème (Ascabiol)","Benzoate de benzyle","Ivermectine orale",
+  "Doxycycline (acné)","Trétinoïne 0,025%","Adapalène gel","Acide azélaïque 15%",
+  "Acide salicylique","Urée 10%","Urée 20%","Vaseline blanche","Paraffine",
+  // Vitamines / Compléments
+  "Vitamine D3 400 UI","Vitamine D3 800 UI","Vitamine D3 1000 UI","Vitamine D3 2000 UI",
+  "Vitamine D3 100 000 UI (ampoule mensuelle)","Vitamine D3 200 000 UI (ampoule trimestrielle)",
+  "Vitamine B1 (Thiamine)","Vitamine B6 40mg","Vitamine B12 1000µg","Complexe B9/B12",
+  "Vitamine C 500mg","Vitamine C 1000mg","Vitamine E 400 UI","Vitamine K","Multivitamines",
+  "Oméga-3 1g","Coenzyme Q10","Magnésium marin 300mg","Potassium 600mg","Sélénium",
+  "Protéines (compléments nutritionnels oraux)","Ensures / Fortimel (CNO)",
+];
+
 /*
   EHPAD Staff — Démo web locale
   v4 — toutes les améliorations :
@@ -498,23 +695,11 @@ function viewProfileAgent(){
       <div class="section-title">Santé</div>
       <div class="field">
         <label>Allergies connues</label>
-        ${tagPicker("p_allergies", p.allergies||"", [
-          "Aucune connue","Pénicilline","Amoxicilline","Aspirine","AINS","Codeïne",
-          "Sulfamides","Iode","Latex","Arachides","Fruits à coque","Gluten","Lactose",
-          "Œufs","Soja","Poissons","Crustacés","Moisissures","Pollen","Acariens"
-        ])}
+        ${renderTagPicker("p_allergies", p.allergies||"")}
       </div>
       <div class="field" style="margin-top:10px">
         <label>Traitements en cours</label>
-        ${tagPicker("p_treatments", p.treatments||"", [
-          "Aucun traitement","Doliprane 1g","Ibuprofène","Aspirine 100mg",
-          "Lévothyrox 50µg","Lévothyrox 75µg","Lévothyrox 100µg",
-          "Metformine 500mg","Metformine 850mg","Insuline",
-          "Amlodipine 5mg","Bisoprolol 5mg","Ramipril 5mg","Atorvastatine 20mg",
-          "Oméprazole 20mg","Pantoprazole 40mg",
-          "Sertraline 50mg","Escitalopram 10mg","Lorazépam 1mg",
-          "Ventoline (inhalateur)","Symbicort","Cortancyl 5mg"
-        ])}
+        ${renderTagPicker("p_treatments", p.treatments||"")}
       </div>
       <div class="field" style="margin-top:10px"><label>Groupe sanguin</label><input id="p_blood" value="${p.bloodType||""}" placeholder="Ex: O+"/></div>
       <div class="field" style="margin-top:10px"><label>Notes</label><textarea id="p_notes" placeholder="Ex: asthme léger…">${p.notes||""}</textarea></div>
@@ -659,58 +844,94 @@ function viewAccount(){
 }
 
 
-// ── Tag picker (allergies / traitements) ──────────────────────────────────────
-function tagPicker(id, currentValue, options){
+
+// ── Tag Picker ────────────────────────────────────────────────────────────────
+function renderTagPicker(id, currentValue){
+  const list = id === "p_allergies" ? ALLERGIES_LIST : MEDICATIONS_LIST;
   const selected = currentValue ? currentValue.split(",").map(s=>s.trim()).filter(Boolean) : [];
+  // tags that are custom (not in list)
+  const customSel = selected.filter(s => !list.includes(s));
+
+  const chips = list.map(opt => {
+    const isSel = selected.includes(opt);
+    return `<button type="button" class="tag-chip${isSel?" sel":""}" data-picker="${id}" data-val="${escHtml(opt)}">${escHtml(opt)}</button>`;
+  }).join("");
+
+  const customChips = customSel.map(s =>
+    `<span class="tag-custom-chip" data-val="${escHtml(s)}">${escHtml(s)} <span class="rm">✕</span></span>`
+  ).join("");
+
   return `
-    <div class="tag-picker" id="${id}_picker">
-      <div class="tag-picker-chips">
-        ${options.map(opt => {
-          const isSel = selected.includes(opt);
-          return `<button type="button" class="tag-chip ${isSel?'sel':''}" data-picker="${id}" data-val="${escapeHtml(opt)}">${escapeHtml(opt)}</button>`;
-        }).join("")}
+    <div class="tag-picker-wrap" id="${id}_wrap">
+      <div class="tag-picker-search-box">
+        <input class="tag-picker-search" id="${id}_search" placeholder="Rechercher…" autocomplete="off"/>
       </div>
-      <div class="tag-picker-custom">
-        <input id="${id}_custom" placeholder="Autre… (Entrée pour ajouter)" style="flex:1"/>
-        <button type="button" class="iconbtn" id="${id}_add">${icons.plus}</button>
+      <div class="tag-picker-chips" id="${id}_chips">${chips}</div>
+      <div class="tag-picker-custom-row">
+        <input class="tag-picker-custom-input" id="${id}_custom" placeholder="Ajouter manuellement…" autocomplete="off"/>
+        <button type="button" class="btn small ghost" id="${id}_addBtn">+ Ajouter</button>
       </div>
-      <div class="tag-picker-selected" id="${id}_selected">
-        ${selected.filter(s=>!options.includes(s)).map(s=>`<span class="tag-custom-chip" data-picker="${id}" data-val="${escapeHtml(s)}">${escapeHtml(s)} ✕</span>`).join("")}
-      </div>
+      ${customSel.length ? `<div class="tag-custom-list" id="${id}_customList">${customChips}</div>` : `<div class="tag-custom-list" id="${id}_customList"></div>`}
     </div>`;
 }
 
-function readTagPicker(id){
-  const picker = document.getElementById(id+"_picker"); if(!picker) return "";
-  const chips = [...picker.querySelectorAll(".tag-chip.sel")].map(c=>c.getAttribute("data-val"));
-  const custom = [...picker.querySelectorAll(".tag-custom-chip")].map(c=>c.getAttribute("data-val"));
-  return [...chips,...custom].join(", ");
-}
+function escHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 function bindTagPickers(){
-  document.querySelectorAll(".tag-chip").forEach(chip=>{
-    chip.addEventListener("click",()=>{
+  ["p_allergies","p_treatments"].forEach(id=>{
+    const wrap = document.getElementById(id+"_wrap"); if(!wrap) return;
+
+    // Search filter
+    const search = document.getElementById(id+"_search");
+    const chipsDiv = document.getElementById(id+"_chips");
+    search?.addEventListener("input",()=>{
+      const q = search.value.toLowerCase().trim();
+      chipsDiv.querySelectorAll(".tag-chip").forEach(chip=>{
+        const match = !q || chip.getAttribute("data-val").toLowerCase().includes(q);
+        chip.style.display = match ? "" : "none";
+      });
+    });
+
+    // Toggle chip selection
+    chipsDiv?.addEventListener("click", e=>{
+      const chip = e.target.closest(".tag-chip"); if(!chip) return;
       chip.classList.toggle("sel");
     });
-  });
-  document.querySelectorAll("[id$='_add']").forEach(btn=>{
-    const pickerId = btn.id.replace("_add","");
-    const input = document.getElementById(pickerId+"_custom");
-    const selectedDiv = document.getElementById(pickerId+"_selected");
+
+    // Add custom
+    const customInput = document.getElementById(id+"_custom");
+    const addBtn = document.getElementById(id+"_addBtn");
+    const customList = document.getElementById(id+"_customList");
+
     function addCustom(){
-      const val = (input.value||"").trim(); if(!val) return;
+      const val = (customInput?.value||"").trim(); if(!val) return;
+      // Check it's not already in list as a chip
+      const existing = chipsDiv.querySelector(`.tag-chip[data-val="${val}"]`);
+      if(existing){ existing.classList.add("sel"); customInput.value=""; return; }
       const span = document.createElement("span");
       span.className = "tag-custom-chip";
-      span.setAttribute("data-picker", pickerId);
       span.setAttribute("data-val", val);
-      span.textContent = val+" ✕";
-      span.addEventListener("click",()=>span.remove());
-      selectedDiv.appendChild(span);
-      input.value = "";
+      span.innerHTML = escHtml(val)+` <span class="rm">✕</span>`;
+      span.querySelector(".rm").addEventListener("click",()=>span.remove());
+      customList.appendChild(span);
+      customInput.value = "";
     }
-    btn.addEventListener("click", addCustom);
-    input?.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); addCustom(); } });
+
+    addBtn?.addEventListener("click", addCustom);
+    customInput?.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); addCustom(); } });
+
+    // Existing custom chips remove
+    wrap.querySelectorAll(".tag-custom-chip .rm").forEach(rm=>{
+      rm.addEventListener("click",()=>rm.closest(".tag-custom-chip").remove());
+    });
   });
+}
+
+function readTagPicker(id){
+  const wrap = document.getElementById(id+"_wrap"); if(!wrap) return "";
+  const fromChips = [...wrap.querySelectorAll(".tag-chip.sel")].map(c=>c.getAttribute("data-val"));
+  const fromCustom = [...wrap.querySelectorAll(".tag-custom-chip")].map(c=>c.getAttribute("data-val"));
+  return [...fromChips,...fromCustom].join(", ");
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
