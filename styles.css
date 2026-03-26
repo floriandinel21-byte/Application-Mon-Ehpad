@@ -166,6 +166,9 @@ textarea{min-height:92px;resize:vertical}
   flex:1;
   overflow:auto;
   padding:12px 12px 148px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
 }
 .tabbar{
   position:sticky;
