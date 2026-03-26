@@ -210,7 +210,7 @@ const MEDICATIONS_LIST = [
   • Fix clavier mobile : chatbar reste au-dessus du clavier (visualViewport)
 */
 
-const LS_KEY = "ehpad_demo_state_v5";
+const LS_KEY = "ehpad_demo_state_v6";
 const AVATAR_COLORS = ["#4f8cff","#32d583","#ff9f43","#ff4f6d","#a855f7"];
 
 const icons = {
@@ -237,6 +237,35 @@ function pendingCount(){
   return state.swapRequests.filter(r=>r.status==="pending").length
        + state.leaveRequests.filter(r=>r.status==="pending").length
        + state.overtime.filter(r=>r.status==="pending").length;
+}
+
+function agentNotifCount(){
+  const uid = state.session?.userId;
+  return (state.notifications||[]).filter(n=>n.userId===uid&&!n.read).length;
+}
+function markNotifsRead(){
+  const uid = state.session?.userId;
+  (state.notifications||[]).forEach(n=>{ if(n.userId===uid) n.read=true; });
+  saveState();
+}
+function pushNotif(userId, msg, type){
+  state.notifications = state.notifications||[];
+  state.notifications.push({id:"n_"+Math.random().toString(16).slice(2), userId, msg, type, time:nowTime(), read:false});
+}
+function hoursThisMonth(userId){
+  const now=new Date(), ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  return state.shifts.filter(s=>s.userId===userId&&s.date.startsWith(ym)).reduce((acc,s)=>{
+    const [sh,sm]=s.start.split(":").map(Number);
+    let [eh,em]=s.end.split(":").map(Number);
+    let mins=(eh*60+em)-(sh*60+sm);
+    if(mins<0) mins+=24*60; // nuit
+    return acc+mins;
+  },0);
+}
+function fmtHours(mins){ return `${Math.floor(mins/60)}h${mins%60?String(mins%60).padStart(2,"0"):""}`; }
+function countLeaveDays(from, to){
+  const a=new Date(from+"T00:00:00"), b=new Date(to+"T00:00:00");
+  return Math.round((b-a)/86400000)+1;
 }
 function avatarColor(id){ const idx=["u1","u2","u3","d1"].indexOf(id); return AVATAR_COLORS[idx>=0?idx:0]; }
 function avatarInitials(name){ return name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
@@ -831,6 +860,8 @@ function setupLogin(){
     userSel.innerHTML=users.map(u=>`<option value="${u.id}">${u.name} — ${u.unit}</option>`).join("");
     userSel.value=users[0]?.id||"";
     renderAvatars(users);
+    const loginBtn=document.getElementById("btnLogin");
+    if(loginBtn) loginBtn.textContent=roleSel.value==="direction"?"Se connecter en tant que Direction":"Se connecter en tant qu'Agent";
   }
   function renderAvatars(users){
     let wrap=document.getElementById("loginAvatars");
@@ -863,10 +894,12 @@ function setupShell(){
   const tabs=state.session.role==="direction"?tabsDirection:tabsAgent;
   const count=pendingCount();
   const tabbar=document.getElementById("tabbar");
+  const agentNotifs = agentNotifCount();
   tabbar.innerHTML=tabs.map(t=>`
     <div class="tab ${t.id===currentTab?'active':''}" data-tab="${t.id}" style="position:relative">
       ${icons[t.icon]}
       ${t.id==="validations"&&count>0?`<span style="position:absolute;top:4px;right:6px;background:var(--danger);color:#fff;font-size:10px;font-weight:900;border-radius:999px;padding:1px 5px;min-width:16px;text-align:center;line-height:1.4">${count}</span>`:""}
+      ${t.id==="profil"&&agentNotifs>0?`<span style="position:absolute;top:4px;right:6px;background:var(--danger);color:#fff;font-size:10px;font-weight:900;border-radius:999px;padding:1px 5px;min-width:16px;text-align:center;line-height:1.4">${agentNotifs}</span>`:""}
       <span>${t.label}</span>
     </div>`).join("");
   tabbar.querySelectorAll(".tab").forEach(el=>el.addEventListener("click",()=>navigate(el.getAttribute("data-tab"))));
@@ -947,7 +980,10 @@ function viewDashboard(){
     <div class="carditem">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
         <h3 style="margin:0">Planning du jour — ${fmtDate(today)}</h3>
+        <div class="row gap">
+        <button class="btn small ghost" id="btnExportPDF" style="display:flex;align-items:center;gap:4px">📄 Export PDF</button>
         <button class="btn small ghost" id="btnAddShift" style="display:flex;align-items:center;gap:4px">${icons.plus} Ajouter</button>
+      </div>
       </div>
       ${units.map(unit=>{
         const sh=todayShifts.filter(s=>s.unit===unit);
@@ -1026,12 +1062,36 @@ function viewPlanningAgent(){
   const u=me();
   state.ui=state.ui||{};
   const selectedUnit=state.ui.agentPlanningUnit||u.unit;
+  const calView=state.ui.calendarView||"month";
+  const mins=hoursThisMonth(u.id);
+  const contractMins=35*60; // 35h contrat
+  const overMins=Math.max(0,mins-contractMins);
+  const pct=Math.min(100,Math.round(mins/contractMins*100));
+  const now=new Date(), monthName=now.toLocaleDateString("fr-FR",{month:"long"});
   return `
     <div class="carditem">
-      <h3>Planning</h3>
-      <div class="muted">Mon planning + vue par unité</div>
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:4px">
+        <h3 style="margin:0">Planning</h3>
+        <div class="row gap">
+          <button class="btn small ${calView==="week"?"primary":"ghost"}" id="btnViewWeek">Semaine</button>
+          <button class="btn small ${calView==="month"?"primary":"ghost"}" id="btnViewMonth">Mois</button>
+        </div>
+      </div>
       <div class="hr"></div>
-      ${renderIOSCalendar({mode:"agent",unit:selectedUnit,meId:u.id})}
+
+      <!-- Compteur heures du mois -->
+      <div class="hours-counter">
+        <div class="row" style="justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:12px;color:var(--muted)">Heures travaillées — ${monthName}</span>
+          <span style="font-size:12px;font-weight:800">${fmtHours(mins)} <span class="muted">/ 35h</span>${overMins>0?` <span style="color:var(--danger);font-size:11px">(+${fmtHours(overMins)} supp)</span>`:""}</span>
+        </div>
+        <div class="hours-bar">
+          <div class="hours-bar-fill" style="width:${pct}%;background:${pct>100?"var(--danger)":"linear-gradient(90deg,var(--primary),#a855f7)"}"></div>
+        </div>
+      </div>
+      <div class="hr"></div>
+
+      ${calView==="week" ? renderWeekView({meId:u.id,unit:selectedUnit}) : renderIOSCalendar({mode:"agent",unit:selectedUnit,meId:u.id})}
     </div>
     <div class="carditem">
       <h3>Disponibilités</h3>
@@ -1138,7 +1198,20 @@ function bubble(m,isMe){
 // ── Profil agent ──────────────────────────────────────────────────────────────
 function viewProfileAgent(){
   const u=me(), p=state.profiles[u.id]||{userId:u.id};
+  const myNotifs=(state.notifications||[]).filter(n=>n.userId===u.id).slice().reverse();
   return `
+    ${myNotifs.length?`
+    <div class="carditem">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 style="margin:0">Notifications</h3>
+        <button class="btn small ghost" id="btnClearNotifs">Tout marquer lu</button>
+      </div>
+      ${myNotifs.slice(0,5).map(n=>`
+        <div class="notif-item ${n.read?"read":"unread"}">
+          <div style="font-size:13px">${n.msg}</div>
+          <div class="muted">${n.time}</div>
+        </div>`).join("")}
+    </div>`:""}
     <div class="carditem">
       <h3>Profil & santé</h3><div class="muted">Visible par la direction.</div><div class="hr"></div>
       <div class="section-title">Informations personnelles</div>
@@ -1248,9 +1321,11 @@ function validationSwapCard(r){ return `<div class="carditem">
 function leaveCard(r){
   const badge=r.status==="approved"?`<span class="badge ok">Approuvé</span>`:r.status==="refused"?`<span class="badge no">Refusé</span>`:`<span class="badge warn">En attente</span>`;
   return `<div class="carditem"><div style="font-weight:850">${r.type} ${badge}</div><div class="muted">${fmtDate(r.from)} → ${fmtDate(r.to)}${r.note?" • "+r.note:""}</div></div>`; }
-function validationLeaveCard(r){ return `<div class="carditem">
+function validationLeaveCard(r){
+  const days=countLeaveDays(r.from,r.to);
+  return `<div class="carditem">
   <div style="font-weight:850">${userName(r.userId)} • ${r.type}</div>
-  <div class="muted">${fmtDate(r.from)} → ${fmtDate(r.to)}${r.note?" • "+r.note:""}</div>
+  <div class="muted">${fmtDate(r.from)} → ${fmtDate(r.to)} <span class="badge" style="margin-left:4px">${days} jour${days>1?"s":""}</span>${r.note?" • "+r.note:""}</div>
   <div class="row gap" style="margin-top:10px">
     <button class="btn small primary" data-leave-approve="${r.id}">✓ Accepter</button>
     <button class="btn small danger"  data-leave-refuse="${r.id}">✗ Refuser</button>
@@ -1350,7 +1425,10 @@ function bindTagPickers(){
       const q = search.value.toLowerCase().trim();
       if(!q){ sugg.innerHTML=""; sugg.classList.add("hidden"); return; }
       const matches = list.filter(s=>s.toLowerCase().includes(q) && !getSelected().includes(s)).slice(0,8);
-      if(!matches.length){ sugg.innerHTML=""; sugg.classList.add("hidden"); return; }
+      if(!matches.length){
+        sugg.innerHTML=`<li style="color:var(--muted);cursor:default;font-style:italic">Aucun résultat — appuie sur Entrée pour ajouter</li>`;
+        sugg.classList.remove("hidden"); return;
+      }
       sugg.innerHTML = matches.map(m=>`<li data-val="${escHtml(m)}">${escHtml(m)}</li>`).join("");
       sugg.classList.remove("hidden");
     });
@@ -1383,6 +1461,18 @@ function readTagPicker(id){
 // ── Handlers ──────────────────────────────────────────────────────────────────
 function attachHandlers(tabId){
   if(tabId==="planning"){
+    document.getElementById("btnViewWeek")?.addEventListener("click",()=>{
+      state.ui=state.ui||{}; state.ui.calendarView="week"; saveState(); renderTab("planning");
+    });
+    document.getElementById("btnViewMonth")?.addEventListener("click",()=>{
+      state.ui=state.ui||{}; state.ui.calendarView="month"; saveState(); renderTab("planning");
+    });
+    document.getElementById("btnWeekPrev")?.addEventListener("click",()=>{
+      state.ui=state.ui||{}; state.ui.weekOffset=(state.ui.weekOffset||0)-1; saveState(); renderTab("planning");
+    });
+    document.getElementById("btnWeekNext")?.addEventListener("click",()=>{
+      state.ui=state.ui||{}; state.ui.weekOffset=(state.ui.weekOffset||0)+1; saveState(); renderTab("planning");
+    });
     document.getElementById("btnSaveAvail")?.addEventListener("click",()=>{
       const st=document.getElementById("availStatus").value, d=document.getElementById("availDate").value, note=document.getElementById("availNote").value.trim();
       const label=st==="available"?"Disponible":st==="unavailable"?"Indisponible":"Arrêt maladie";
@@ -1392,6 +1482,7 @@ function attachHandlers(tabId){
   }
 
   if(tabId==="dashboard_dir"){
+    document.getElementById("btnExportPDF")?.addEventListener("click",exportPlanningPDF);
     document.getElementById("btnAddShift")?.addEventListener("click",openAddShiftModal);
     document.getElementById("btnGoValidations")?.addEventListener("click",()=>navigate("validations"));
     attachValidationBtns();
@@ -1437,7 +1528,13 @@ function attachHandlers(tabId){
   }
 
   if(tabId==="profil"){
+    markNotifsRead();
     bindTagPickers();
+    document.getElementById("btnClearNotifs")?.addEventListener("click",()=>{
+      const uid=state.session.userId;
+      state.notifications=(state.notifications||[]).filter(n=>n.userId!==uid);
+      saveState(); renderTab("profil");
+    });
     document.getElementById("btnSaveProfile")?.addEventListener("click",()=>{
       const u=me(), p=state.profiles[u.id]||{userId:u.id};
       ["p_birth","p_height","p_weight"].forEach(id=>p[{p_birth:"birthDate",p_height:"heightCm",p_weight:"weightKg"}[id]]=document.getElementById(id).value);
@@ -1556,10 +1653,24 @@ function openAddShiftModal(){
 function setSwapStatus(id,status){
   const r=state.swapRequests.find(x=>x.id===id); if(!r) return; r.status=status;
   if(status==="approved"){ const s1=state.shifts.find(s=>s.id===r.requesterShiftId), s2=state.shifts.find(s=>s.id===r.targetShiftId); if(s1&&s2){const tmp=s1.userId;s1.userId=s2.userId;s2.userId=tmp;} }
+  const emoji=status==="approved"?"✅":"❌";
+  const label=status==="approved"?"validé":"refusé";
+  pushNotif(r.requesterId,`Échange avec ${r.targetName||""} ${label} par la direction ${emoji}`,"swap");
+  pushNotif(r.targetId,`Échange avec ${r.requesterName||""} ${label} par la direction ${emoji}`,"swap");
   saveState(); toast(status==="approved"?"Échange validé ✅ — planning mis à jour":"Échange refusé ❌"); renderTab(currentTab);
 }
-function setLeaveStatus(id,status){ const r=state.leaveRequests.find(x=>x.id===id); if(!r) return; r.status=status; saveState(); toast(status==="approved"?"Congé approuvé ✅":"Congé refusé ❌"); renderTab(currentTab); }
-function setOTStatus(id,status){ const r=state.overtime.find(x=>x.id===id); if(!r) return; r.status=status; saveState(); toast(status==="approved"?"Heures supp validées ✅":"Heures supp refusées ❌"); renderTab(currentTab); }
+function setLeaveStatus(id,status){
+  const r=state.leaveRequests.find(x=>x.id===id); if(!r) return; r.status=status;
+  const emoji=status==="approved"?"✅":"❌";
+  pushNotif(r.userId,`Votre demande de ${r.type} (${fmtDate(r.from)}→${fmtDate(r.to)}) a été ${status==="approved"?"approuvée":"refusée"} ${emoji}`,"leave");
+  saveState(); toast(status==="approved"?"Congé approuvé ✅":"Congé refusé ❌"); renderTab(currentTab);
+}
+function setOTStatus(id,status){
+  const r=state.overtime.find(x=>x.id===id); if(!r) return; r.status=status;
+  const emoji=status==="approved"?"✅":"❌";
+  pushNotif(r.userId,`Vos ${r.minutes} min d'heures supp du ${fmtDate(r.date)} ont été ${status==="approved"?"validées":"refusées"} ${emoji}`,"ot");
+  saveState(); toast(status==="approved"?"Heures supp validées ✅":"Heures supp refusées ❌"); renderTab(currentTab);
+}
 
 function openProfileModal(uid){
   const u=state.users.find(x=>x.id===uid), p=state.profiles[uid]||{};
@@ -1657,6 +1768,55 @@ function getCalUnit(mode,u){
 }
 function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
 
+// ── Vue semaine ───────────────────────────────────────────────────────────────
+function renderWeekView({meId, unit}){
+  state.ui=state.ui||{};
+  const today=new Date();
+  // offset stored in state.ui.weekOffset (number of weeks from current)
+  const offset=state.ui.weekOffset||0;
+  // get Monday of current week + offset
+  const monday=new Date(today);
+  monday.setDate(today.getDate()-((today.getDay()+6)%7)+offset*7);
+
+  const days=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(monday); d.setDate(monday.getDate()+i);
+    days.push(d);
+  }
+  const weekLabel=`${days[0].toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} – ${days[6].toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}`;
+
+  const rows = days.map(d=>{
+    const di=iso(d), isToday=sameDay(d,today);
+    const myS=state.shifts.filter(s=>s.userId===meId&&s.date===di);
+    const unitS=state.shifts.filter(s=>s.unit===unit&&s.date===di&&s.userId!==meId);
+    const dw=d.getDay();
+    const dayStyle=isToday?"background:rgba(79,140,255,.12);border-color:rgba(79,140,255,.35)":"";
+    const numColor=(dw===0||dw===6)?"color:rgba(255,150,150,.9)":"";
+    return `
+      <div class="week-row" style="${dayStyle}">
+        <div class="week-day-label">
+          <div class="week-day-name" style="${numColor}">${d.toLocaleDateString("fr-FR",{weekday:"short"})}</div>
+          <div class="week-day-num" style="${numColor}">${d.getDate()}</div>
+        </div>
+        <div class="week-shifts">
+          ${myS.length?myS.map(s=>`<div class="week-shift me"><span class="tag ${shiftCls(s.label)}" style="font-size:11px">${s.label}</span> <span style="font-size:11px;font-weight:800">${s.start}–${s.end}</span></div>`).join(""):
+            `<div class="week-shift off">Repos</div>`}
+          ${unitS.slice(0,2).map(s=>`<div class="week-shift team"><span style="font-size:10px;color:var(--muted)">${userName(s.userId).split(" ")[0]} ${s.start}–${s.end}</span></div>`).join("")}
+        </div>
+      </div>`;
+  }).join("");
+
+  return `
+    <div class="week-wrap">
+      <div class="week-nav-row">
+        <button class="iconbtn" id="btnWeekPrev">${icons.chevLeft}</button>
+        <span style="font-size:13px;font-weight:800">${weekLabel}</span>
+        <button class="iconbtn" id="btnWeekNext">${icons.chevRight}</button>
+      </div>
+      <div class="week-grid">${rows}</div>
+    </div>`;
+}
+
 function renderIOSCalendar({mode,unit,meId}){
   state.ui=state.ui||{}; const today=new Date();
   const ym=state.ui.calendarYM||{y:today.getFullYear(),m:today.getMonth()}, {y,m}=ym;
@@ -1668,7 +1828,7 @@ function renderIOSCalendar({mode,unit,meId}){
   const mLabel=new Date(y,m,1).toLocaleDateString("fr-FR",{month:"long",year:"numeric"});
 
   // Unit selector — shown for both agent and direction
-  const allUnits=[...new Set(state.shifts.map(s=>s.unit).filter(u2=>u2!=="Nuit"))].sort();
+  const allUnits=[...new Set(state.shifts.map(s=>s.unit))].sort();
 
   return `<div class="ioscal-wrap" data-ioscal="1">
     <div class="unit-selector-row">
@@ -1723,6 +1883,69 @@ function renderDayDetail(dayIso,{mode,unit,meId}){
 
 function detailLine(time,label,tagText,tagClass){ return `<div class="detail-line"><div class="left"><div style="font-weight:900">${time}</div><div class="muted">${escapeHtml(label)}</div></div><span class="tag ${tagClass}">${escapeHtml(tagText)}</span></div>`; }
 function capitalize(s){ return s?s.charAt(0).toUpperCase()+s.slice(1):s; }
+
+
+// ── Export PDF ────────────────────────────────────────────────────────────────
+function exportPlanningPDF(){
+  const now=new Date();
+  const ym=state.ui?.calendarYM||{y:now.getFullYear(),m:now.getMonth()};
+  const {y,m}=ym;
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const monthLabel=new Date(y,m,1).toLocaleDateString("fr-FR",{month:"long",year:"numeric"});
+  const units=[...new Set(state.shifts.map(s=>s.unit))].sort();
+  const agents=state.users.filter(u=>u.role==="agent");
+
+  // Build days array
+  const days=[];
+  for(let d=1;d<=daysInMonth;d++) days.push(new Date(y,m,d));
+
+  let tables="";
+  for(const unit of units){
+    const unitAgents=agents.filter(a=>a.unit===unit);
+    let rows="";
+    for(const d of days){
+      const di=iso(d);
+      const dw=d.getDay();
+      const weekendStyle=dw===0||dw===6?"background:#1a2035;":"";
+      const dateLabel=d.toLocaleDateString("fr-FR",{weekday:"short",day:"2-digit",month:"short"});
+      const dayShifts=state.shifts.filter(s=>s.unit===unit&&s.date===di);
+      const cells=unitAgents.map(a=>{
+        const s=dayShifts.find(sh=>sh.userId===a.id);
+        if(!s) return `<td style="color:#666;font-size:11px;padding:6px 8px;">—</td>`;
+        const colors={Matin:"#1a3a6e",Soir:"#3a2a0e",Nuit:"#2a1a4e",Journée:"#3a2a0e"};
+        const bg=colors[s.label]||"#1a2035";
+        return `<td style="background:${bg};padding:6px 8px;font-size:11px;white-space:nowrap;">${s.start}–${s.end}<br><span style="color:#888;font-size:10px">${s.label}</span></td>`;
+      }).join("");
+      rows+=`<tr style="${weekendStyle}"><td style="padding:6px 8px;font-size:11px;white-space:nowrap;color:#aaa">${dateLabel}</td>${cells}</tr>`;
+    }
+    const headers=unitAgents.map(a=>`<th style="padding:8px;font-size:12px;font-weight:700;text-align:left;white-space:nowrap">${a.name.split(" ")[0]}</th>`).join("");
+    tables+=`
+      <h2 style="margin:24px 0 8px;font-size:15px;border-bottom:1px solid #333;padding-bottom:6px">${unit}</h2>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+        <thead><tr style="background:#0f1a30"><th style="padding:8px;font-size:12px;text-align:left">Date</th>${headers}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+    <title>Planning EHPAD — ${capitalize(monthLabel)}</title>
+    <style>
+      body{font-family:system-ui,sans-serif;background:#0b1220;color:#eef3ff;padding:20px;margin:0}
+      h1{font-size:18px;margin-bottom:4px} .sub{color:#a9b6d3;font-size:12px;margin-bottom:20px}
+      table{border:1px solid #1e2d4a} td,th{border:1px solid #1e2d4a}
+      @media print{body{background:#fff;color:#000} td,th{border:1px solid #ccc} h2{color:#000}}
+    </style>
+  </head><body>
+    <h1>Planning EHPAD — ${capitalize(monthLabel)}</h1>
+    <div class="sub">Généré le ${now.toLocaleDateString("fr-FR",{dateStyle:"full"})}</div>
+    ${tables}
+    <script>window.print();<\/script>
+  </body></html>`;
+
+  const win=window.open("","_blank");
+  if(win){ win.document.write(html); win.document.close(); }
+  else toast("Autorisez les pop-ups pour exporter");
+}
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 render();
