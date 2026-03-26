@@ -1024,12 +1024,23 @@ function quickOTCard(r){ return `<div class="carditem">
 // ── Planning agent ────────────────────────────────────────────────────────────
 function viewPlanningAgent(){
   const u=me();
+  state.ui=state.ui||{};
+  const units=[...new Set(state.shifts.map(s=>s.unit))].sort();
+  const selectedUnit=state.ui.agentPlanningUnit||u.unit;
   return `
     <div class="carditem">
       <h3>Planning</h3>
-      <div class="muted">Personnel + équipe (${u.unit})</div>
+      <div class="muted">Mon planning + vue par unité</div>
       <div class="hr"></div>
-      ${renderIOSCalendar({mode:"agent",unit:u.unit,meId:u.id})}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        ${units.map(unit=>`
+          <button class="pill unit-tab ${selectedUnit===unit?"active-unit":""}"
+            data-planning-unit="${unit}"
+            style="${selectedUnit===unit?"background:rgba(79,140,255,.18);border-color:rgba(79,140,255,.45);color:#cfe0ff":""}">
+            ${unit}${unit===u.unit?' <span style="font-size:10px;opacity:.7">(moi)</span>':''}
+          </button>`).join("")}
+      </div>
+      ${renderIOSCalendar({mode:"agent",unit:selectedUnit,meId:u.id})}
     </div>
     <div class="carditem">
       <h3>Disponibilités</h3>
@@ -1381,6 +1392,14 @@ function readTagPicker(id){
 // ── Handlers ──────────────────────────────────────────────────────────────────
 function attachHandlers(tabId){
   if(tabId==="planning"){
+    // Unit selector
+    document.querySelectorAll("[data-planning-unit]").forEach(btn=>{
+      btn.addEventListener("click",()=>{
+        state.ui=state.ui||{};
+        state.ui.agentPlanningUnit=btn.getAttribute("data-planning-unit");
+        saveState(); renderTab("planning");
+      });
+    });
     document.getElementById("btnSaveAvail")?.addEventListener("click",()=>{
       const st=document.getElementById("availStatus").value, d=document.getElementById("availDate").value, note=document.getElementById("availNote").value.trim();
       const label=st==="available"?"Disponible":st==="unavailable"?"Indisponible":"Arrêt maladie";
