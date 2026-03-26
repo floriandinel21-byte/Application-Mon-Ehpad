@@ -1025,21 +1025,12 @@ function quickOTCard(r){ return `<div class="carditem">
 function viewPlanningAgent(){
   const u=me();
   state.ui=state.ui||{};
-  const units=[...new Set(state.shifts.map(s=>s.unit))].sort();
   const selectedUnit=state.ui.agentPlanningUnit||u.unit;
   return `
     <div class="carditem">
       <h3>Planning</h3>
       <div class="muted">Mon planning + vue par unité</div>
       <div class="hr"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        ${units.map(unit=>`
-          <button class="pill unit-tab ${selectedUnit===unit?"active-unit":""}"
-            data-planning-unit="${unit}"
-            style="${selectedUnit===unit?"background:rgba(79,140,255,.18);border-color:rgba(79,140,255,.45);color:#cfe0ff":""}">
-            ${unit}${unit===u.unit?' <span style="font-size:10px;opacity:.7">(moi)</span>':''}
-          </button>`).join("")}
-      </div>
       ${renderIOSCalendar({mode:"agent",unit:selectedUnit,meId:u.id})}
     </div>
     <div class="carditem">
@@ -1392,14 +1383,6 @@ function readTagPicker(id){
 // ── Handlers ──────────────────────────────────────────────────────────────────
 function attachHandlers(tabId){
   if(tabId==="planning"){
-    // Unit selector
-    document.querySelectorAll("[data-planning-unit]").forEach(btn=>{
-      btn.addEventListener("click",()=>{
-        state.ui=state.ui||{};
-        state.ui.agentPlanningUnit=btn.getAttribute("data-planning-unit");
-        saveState(); renderTab("planning");
-      });
-    });
     document.getElementById("btnSaveAvail")?.addEventListener("click",()=>{
       const st=document.getElementById("availStatus").value, d=document.getElementById("availDate").value, note=document.getElementById("availNote").value.trim();
       const label=st==="available"?"Disponible":st==="unavailable"?"Indisponible":"Arrêt maladie";
@@ -1649,7 +1632,11 @@ function bindIOSCalendar(){
     let {y,m}=ym; m++; if(m>11){m=0;y++;} state.ui.calendarYM={y,m}; saveState(); renderTab(currentTab);
   });
   wrap.querySelectorAll("[data-cal-unit]").forEach(btn=>btn.addEventListener("click",()=>{
-    state.ui=state.ui||{}; state.ui.calendarUnit=btn.getAttribute("data-cal-unit"); saveState(); renderTab(currentTab);
+    state.ui=state.ui||{};
+    const unit=btn.getAttribute("data-cal-unit");
+    if(isDirection()) state.ui.calendarUnit=unit;
+    else state.ui.agentPlanningUnit=unit;
+    saveState(); renderTab(currentTab);
   }));
   wrap.querySelectorAll("[data-cal-date]").forEach(cell=>{
     if(cell.classList.contains("off")) return;
@@ -1663,7 +1650,11 @@ function bindIOSCalendar(){
   });
 }
 
-function getCalUnit(mode,u){ if(mode==="direction"){ state.ui=state.ui||{}; return state.ui.calendarUnit||"Unité 1"; } return u?.unit||"Unité 1"; }
+function getCalUnit(mode,u){
+  state.ui=state.ui||{};
+  if(mode==="direction") return state.ui.calendarUnit||"Unité 1";
+  return state.ui.agentPlanningUnit||u?.unit||"Unité 1";
+}
 function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
 
 function renderIOSCalendar({mode,unit,meId}){
@@ -1676,7 +1667,15 @@ function renderIOSCalendar({mode,unit,meId}){
   const units=[...new Set(state.shifts.map(s=>s.unit))].sort();
   const mLabel=new Date(y,m,1).toLocaleDateString("fr-FR",{month:"long",year:"numeric"});
 
+  // Unit selector — shown for both agent and direction
+  const allUnits=[...new Set(state.shifts.map(s=>s.unit).filter(u2=>u2!=="Nuit"))].sort();
+
   return `<div class="ioscal-wrap" data-ioscal="1">
+    <div class="unit-selector-row">
+      ${allUnits.map(u2=>`
+        <button class="unit-sel-btn ${calUnit===u2?"active":""}" data-cal-unit="${u2}">${u2}</button>
+      `).join("")}
+    </div>
     <div class="ioscal-head">
       <div><div class="ioscal-title">${capitalize(mLabel)}</div><div class="muted">Appuyez sur un jour pour voir le détail</div></div>
       <div class="ioscal-nav">
@@ -1684,7 +1683,7 @@ function renderIOSCalendar({mode,unit,meId}){
         <button class="iconbtn" data-cal-next>${icons.chevRight}</button>
       </div>
     </div>
-    ${mode==="direction"?`<div style="display:flex;gap:8px;padding:10px 12px 0;flex-wrap:wrap">${units.map(u2=>`<button class="pill" data-cal-unit="${u2}" style="${calUnit===u2?"background:rgba(79,140,255,.18);border-color:rgba(79,140,255,.45);color:#cfe0ff":""}">${u2}</button>`).join("")}</div>`:""}
+
     <div class="ioscal-dow"><div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div style="color:rgba(255,200,100,.85)">S</div><div style="color:rgba(255,110,110,.85)">D</div></div>
     <div class="ioscal-grid">
       ${cells.map(c=>{

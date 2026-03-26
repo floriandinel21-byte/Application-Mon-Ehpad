@@ -570,3 +570,27 @@ textarea{min-height:92px;resize:vertical}
 
 .tag.journee{ border-color:rgba(255,159,67,.35); color:#ffe4b8; background:rgba(255,159,67,.12); }
 .dot.journee{ background:rgba(255,159,67,.95); }
+
+/* ── Unit selector (inside calendar) ────────────────────────────────────────*/
+.unit-selector-row{
+  display:flex;
+  gap:8px;
+  padding:12px 12px 0;
+  flex-wrap:wrap;
+}
+.unit-sel-btn{
+  padding:7px 14px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.03);
+  color:var(--muted);
+  cursor:pointer;
+  transition:all .15s;
+}
+.unit-sel-btn.active{
+  background:rgba(79,140,255,.18);
+  border-color:rgba(79,140,255,.5);
+  color:#cfe0ff;
+}
