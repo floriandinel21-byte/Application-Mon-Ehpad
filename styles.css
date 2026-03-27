@@ -139,7 +139,7 @@ textarea{min-height:92px;resize:vertical}
   flex-direction:column;
   border-left:1px solid rgba(255,255,255,.06);
   border-right:1px solid rgba(255,255,255,.06);
-  overflow:hidden;
+  overflow-x:hidden;
 }
 
 .statusbar{height:12px}
@@ -212,7 +212,7 @@ textarea{min-height:92px;resize:vertical}
   border:1px solid var(--line);
   border-radius: var(--radius);
   padding:14px;
-  overflow:hidden;
+  overflow-x:hidden;
 }
 .carditem h3{margin:0 0 8px;font-size:14px}
 .muted{color:var(--muted);font-size:12px}
@@ -224,6 +224,18 @@ textarea{min-height:92px;resize:vertical}
 @media(min-width:380px){
   .split{grid-template-columns: 1fr 1fr;}
 }
+
+
+/* ── Grid 2 colonnes ─────────────────────────────────────────────────────────*/
+.grid2{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  min-width:0;
+}
+.grid2 > *{ min-width:0; }
+.grid2 input,
+.grid2 select{ width:100%; min-width:0; box-sizing:border-box; }
 
 .badge{
   display:inline-flex;
@@ -323,7 +335,7 @@ textarea{min-height:92px;resize:vertical}
   border:1px solid rgba(255,255,255,.15);
   border-radius: 22px;
   box-shadow: 0 24px 60px rgba(0,0,0,.7);
-  overflow:hidden;
+  overflow-x:hidden;
 }
 .modal-head{
   display:flex;
@@ -361,7 +373,7 @@ textarea{min-height:92px;resize:vertical}
   background: rgba(255,255,255,.03);
   border:1px solid var(--line);
   border-radius: 22px;
-  overflow:hidden;
+  overflow-x:hidden;
 }
 .ioscal-head{
   display:flex;
@@ -611,7 +623,7 @@ textarea{min-height:92px;resize:vertical}
 .hours-bar{
   height:7px; border-radius:999px;
   background:rgba(255,255,255,.08);
-  overflow:hidden;
+  overflow-x:hidden;
 }
 .hours-bar-fill{
   height:100%; border-radius:999px;
