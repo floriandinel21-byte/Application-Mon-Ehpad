@@ -1254,7 +1254,7 @@ function viewProfileAgent(){
       <div class="section-title">Mes demandes</div>
       <div class="cardlist">${state.leaveRequests.filter(r=>r.userId===u.id).slice().reverse().map(leaveCard).join("")||`<div class="muted">Aucune demande.</div>`}</div>
     </div>
-    <div class="carditem">
+    <div class="carditem" id="ot-section">
       <h3>Heures supplémentaires</h3><div class="muted">La direction valide.</div><div class="hr"></div>
       <div class="grid2">
         <div class="field"><label>Durée</label><select id="otMinutes"><option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1 h</option><option value="90">1 h 30</option></select></div>
@@ -1549,8 +1549,22 @@ function attachHandlers(tabId){
       saveState(); toast("Demande envoyée ✅"); renderTab("profil");
     });
     document.getElementById("btnSendOT")?.addEventListener("click",()=>{
-      state.overtime.push({id:"ot_"+Math.random().toString(16).slice(2),userId:me().id,minutes:parseInt(document.getElementById("otMinutes").value,10),date:document.getElementById("otDate").value,note:document.getElementById("otNote").value.trim(),status:"pending",createdAt:nowTime()});
-      saveState(); toast("Heures supp déclarées ✅"); renderTab("profil");
+      const mins = parseInt(document.getElementById("otMinutes")?.value||"0",10);
+      const date = document.getElementById("otDate")?.value;
+      const note = document.getElementById("otNote")?.value.trim()||"";
+      if(!date){ toast("Sélectionne une date"); return; }
+      state.overtime.push({
+        id:"ot_"+Math.random().toString(16).slice(2),
+        userId:me().id, minutes:mins, date, note, status:"pending", createdAt:nowTime()
+      });
+      saveState();
+      toast("Heures supp déclarées ✅");
+      renderTab("profil");
+      // Scroll to OT section after re-render
+      setTimeout(()=>{
+        const el=document.getElementById("ot-section");
+        if(el) el.scrollIntoView({behavior:"smooth"});
+      },100);
     });
   }
 
