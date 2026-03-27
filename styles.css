@@ -139,7 +139,7 @@ textarea{min-height:92px;resize:vertical}
   flex-direction:column;
   border-left:1px solid rgba(255,255,255,.06);
   border-right:1px solid rgba(255,255,255,.06);
-  overflow-x:hidden;
+  overflow:hidden;
 }
 
 .statusbar{height:12px}
@@ -212,7 +212,7 @@ textarea{min-height:92px;resize:vertical}
   border:1px solid var(--line);
   border-radius: var(--radius);
   padding:14px;
-  overflow-x:hidden;
+  overflow:hidden;
 }
 .carditem h3{margin:0 0 8px;font-size:14px}
 .muted{color:var(--muted);font-size:12px}
@@ -224,18 +224,6 @@ textarea{min-height:92px;resize:vertical}
 @media(min-width:380px){
   .split{grid-template-columns: 1fr 1fr;}
 }
-
-
-/* ── Grid 2 colonnes ─────────────────────────────────────────────────────────*/
-.grid2{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  min-width:0;
-}
-.grid2 > *{ min-width:0; }
-.grid2 input,
-.grid2 select{ width:100%; min-width:0; box-sizing:border-box; }
 
 .badge{
   display:inline-flex;
@@ -335,7 +323,7 @@ textarea{min-height:92px;resize:vertical}
   border:1px solid rgba(255,255,255,.15);
   border-radius: 22px;
   box-shadow: 0 24px 60px rgba(0,0,0,.7);
-  overflow-x:hidden;
+  overflow:hidden;
 }
 .modal-head{
   display:flex;
@@ -373,7 +361,7 @@ textarea{min-height:92px;resize:vertical}
   background: rgba(255,255,255,.03);
   border:1px solid var(--line);
   border-radius: 22px;
-  overflow-x:hidden;
+  overflow:hidden;
 }
 .ioscal-head{
   display:flex;
@@ -623,7 +611,7 @@ textarea{min-height:92px;resize:vertical}
 .hours-bar{
   height:7px; border-radius:999px;
   background:rgba(255,255,255,.08);
-  overflow-x:hidden;
+  overflow:hidden;
 }
 .hours-bar-fill{
   height:100%; border-radius:999px;
@@ -666,3 +654,94 @@ textarea{min-height:92px;resize:vertical}
   border-color:rgba(79,140,255,.3);
 }
 .notif-item.read{ opacity:.55; background:rgba(255,255,255,.02); }
+
+/* ── Grid 2 fix overflow ─────────────────────────────────────────────────────*/
+.grid2 input, .grid2 select{ min-width:0; }
+
+/* ── Nuit violet ─────────────────────────────────────────────────────────────*/
+.dot.night{ background: rgba(168,85,247,.95); }
+.tag.night{ border-color:rgba(168,85,247,.35); color:#e5c8ff; background:rgba(168,85,247,.12); }
+.tag.soir{  border-color:rgba(255,159,67,.35); color:#ffe4b8; background:rgba(255,159,67,.12); }
+.tag.matin{ border-color:rgba(79,140,255,.35); color:#cfe0ff; background:rgba(79,140,255,.10); }
+.tag.journee{ border-color:rgba(255,159,67,.35); color:#ffe4b8; background:rgba(255,159,67,.12); }
+.dot.journee{ background:rgba(255,159,67,.95); }
+
+/* ── KPI Grid ────────────────────────────────────────────────────────────────*/
+.kpi-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.kpi-card{ background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:var(--radius); padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; }
+.kpi-icon{ width:34px;height:34px;border-radius:11px; display:grid;place-items:center;flex-shrink:0; }
+.kpi-icon svg{width:18px;height:18px}
+.kpi-val{ font-size:22px;font-weight:900;line-height:1; }
+.kpi-label{ font-size:10px;color:var(--muted);line-height:1.3; }
+
+/* ── Avatars login ───────────────────────────────────────────────────────────*/
+.avatar-row{ display:flex;gap:10px;flex-wrap:wrap; justify-content:center; margin:14px 0 4px; }
+.avatar-chip{ display:flex;flex-direction:column;align-items:center;gap:6px; cursor:pointer;padding:10px 12px;border-radius:16px; border:1px solid var(--line); background:rgba(255,255,255,.02); transition:all .15s; font-size:12px;color:var(--muted); }
+.avatar-chip.active{ background:rgba(79,140,255,.12); border-color:rgba(79,140,255,.45); color:var(--text); }
+.avatar-circle{ width:40px;height:40px;border-radius:14px; display:grid;place-items:center; font-weight:900;font-size:14px; color:#fff; }
+
+/* ── Chat empty state ────────────────────────────────────────────────────────*/
+.chat-empty{ display:flex;flex-direction:column;align-items:center;gap:10px; padding:30px 20px;color:var(--muted);font-size:13px;text-align:center; }
+.chat-empty svg{width:32px;height:32px;opacity:.4}
+
+/* ── Chatbar fixed ───────────────────────────────────────────────────────────*/
+.chatbar{ position:fixed; bottom:84px; left:50%; transform:translateX(-50%); width:min(420px,100%); display:flex; gap:8px; padding:10px 12px; background: linear-gradient(180deg, rgba(11,18,32,0), rgba(11,18,32,.96)); backdrop-filter: blur(12px); border-top:1px solid var(--line); z-index:50; }
+.chatbar input{flex:1}
+.iconbtn.primary{ background: rgba(79,140,255,.18); border-color: rgba(79,140,255,.35); }
+
+/* ── Modal opaque ────────────────────────────────────────────────────────────*/
+.modal-backdrop{ position:fixed; inset:0; background: rgba(0,0,0,.82); display:flex; align-items:flex-end; justify-content:center; padding:14px; }
+.modal{ width:min(420px, 100%); background: linear-gradient(180deg, #151f38, #101828); border:1px solid rgba(255,255,255,.15); border-radius: 22px; box-shadow: 0 24px 60px rgba(0,0,0,.7); overflow:hidden; }
+.modal-head{ display:flex; justify-content:space-between; align-items:center; padding:14px 12px; border-bottom:1px solid var(--line); }
+.modal-title{font-weight:850}
+.modal-body{padding:12px}
+.modal-foot{padding:12px;border-top:1px solid var(--line);display:flex;gap:8px}
+.modal-foot .btn{margin:0}
+
+/* ── Toast ───────────────────────────────────────────────────────────────────*/
+.toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:92px; background: rgba(0,0,0,.65); border:1px solid rgba(255,255,255,.12); padding:10px 12px; border-radius:14px; color:var(--text); font-size:13px; box-shadow: var(--shadow); }
+
+/* ── Tag Picker autocomplete ─────────────────────────────────────────────────*/
+.tag-picker-wrap{ display:flex; flex-direction:column; gap:8px; margin-top:6px; position:relative; }
+.tag-picker-search{ width:100%; padding:11px 14px; border-radius:14px; background:rgba(255,255,255,.05); border:1px solid var(--line); color:var(--text); outline:none; font-size:13px; box-sizing:border-box; }
+.tag-picker-search:focus{ border-color:rgba(79,140,255,.55); }
+.tag-suggestions{ position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:100; background: linear-gradient(180deg,rgba(15,26,48,1),rgba(11,18,32,1)); border:1px solid rgba(79,140,255,.35); border-radius:14px; overflow:hidden; list-style:none; margin:0; padding:4px 0; box-shadow: 0 12px 32px rgba(0,0,0,.5); }
+.tag-suggestions li{ padding:10px 14px; font-size:13px; cursor:pointer; color:var(--text); transition:background .1s; }
+.tag-suggestions li:hover{ background:rgba(79,140,255,.18); }
+.tag-suggestions.hidden{ display:none; }
+.tag-sel-list{ display:flex; flex-wrap:wrap; gap:6px; }
+.tag-sel-chip{ display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; font-size:12px; font-weight:650; background:rgba(79,140,255,.15); border:1px solid rgba(79,140,255,.45); color:#cfe0ff; }
+.tag-sel-chip .rm{ cursor:pointer; opacity:.6; font-size:11px; line-height:1; background:rgba(255,255,255,.12); border-radius:999px; padding:1px 4px; }
+.tag-sel-chip .rm:hover{ opacity:1; background:rgba(255,79,109,.35); }
+
+/* ── Unit selector ───────────────────────────────────────────────────────────*/
+.unit-selector-row{ display:flex; gap:8px; padding:12px 12px 0; flex-wrap:wrap; }
+.unit-sel-btn{ padding:7px 14px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--muted); cursor:pointer; transition:all .15s; }
+.unit-sel-btn.active{ background:rgba(79,140,255,.18); border-color:rgba(79,140,255,.5); color:#cfe0ff; }
+
+/* ── Hours counter ───────────────────────────────────────────────────────────*/
+.hours-counter{ margin-bottom:4px; }
+.hours-bar{ height:7px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden; }
+.hours-bar-fill{ height:100%; border-radius:999px; transition:width .5s ease; }
+
+/* ── Week view ───────────────────────────────────────────────────────────────*/
+.week-wrap{ display:flex; flex-direction:column; }
+.week-nav-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid var(--line); background:rgba(255,255,255,.02); }
+.week-grid{ display:flex; flex-direction:column; }
+.week-row{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border-bottom:1px solid var(--line); transition:background .15s; }
+.week-day-label{ width:36px; flex-shrink:0; text-align:center; }
+.week-day-name{ font-size:11px; color:var(--muted); text-transform:capitalize; }
+.week-day-num{ font-size:17px; font-weight:900; line-height:1.1; }
+.week-shifts{ display:flex; flex-direction:column; gap:4px; flex:1; }
+.week-shift{ font-size:12px; }
+.week-shift.me{ font-weight:750; }
+.week-shift.off{ color:var(--muted); font-style:italic; font-size:11px; }
+.week-shift.team{ opacity:.6; }
+
+/* ── Notifications ───────────────────────────────────────────────────────────*/
+.notif-item{ padding:10px 12px; border-radius:12px; margin-bottom:6px; border:1px solid var(--line); font-size:13px; display:flex; flex-direction:column; gap:3px; }
+.notif-item.unread{ background:rgba(79,140,255,.08); border-color:rgba(79,140,255,.3); }
+.notif-item.read{ opacity:.55; background:rgba(255,255,255,.02); }
+
+/* ── Spacing between cards ───────────────────────────────────────────────────*/
+.main{ flex:1; overflow:auto; padding:12px 12px 148px; display:flex; flex-direction:column; gap:16px; }
