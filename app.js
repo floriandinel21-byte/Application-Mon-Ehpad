@@ -254,13 +254,20 @@ function pushNotif(userId, msg, type){
 }
 function hoursThisMonth(userId){
   const now=new Date(), ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
-  return state.shifts.filter(s=>s.userId===userId&&s.date.startsWith(ym)).reduce((acc,s)=>{
+  const shiftMins=state.shifts.filter(s=>s.userId===userId&&s.date.startsWith(ym)).reduce((acc,s)=>{
     const [sh,sm]=s.start.split(":").map(Number);
     let [eh,em]=s.end.split(":").map(Number);
     let mins=(eh*60+em)-(sh*60+sm);
-    if(mins<0) mins+=24*60; // nuit
+    if(mins<0) mins+=24*60;
     return acc+mins;
   },0);
+  return shiftMins;
+}
+function otThisMonth(userId){
+  const now=new Date(), ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  // pending + approved
+  return state.overtime.filter(o=>o.userId===userId&&o.date.startsWith(ym)&&o.status!=="refused")
+    .reduce((acc,o)=>acc+o.minutes,0);
 }
 function fmtHours(mins){ return `${Math.floor(mins/60)}h${mins%60?String(mins%60).padStart(2,"0"):""}`; }
 function countLeaveDays(from, to){
@@ -1064,9 +1071,11 @@ function viewPlanningAgent(){
   const selectedUnit=state.ui.agentPlanningUnit||u.unit;
   const calView=state.ui.calendarView||"month";
   const mins=hoursThisMonth(u.id);
-  const contractMins=35*60; // 35h contrat
-  const overMins=Math.max(0,mins-contractMins);
-  const pct=Math.min(100,Math.round(mins/contractMins*100));
+  const otMins=otThisMonth(u.id);
+  const totalMins=mins+otMins;
+  const contractMins=35*60;
+  const overMins=Math.max(0,totalMins-contractMins);
+  const pct=Math.min(100,Math.round(totalMins/contractMins*100));
   const now=new Date(), monthName=now.toLocaleDateString("fr-FR",{month:"long"});
   return `
     <div class="carditem">
@@ -1082,11 +1091,23 @@ function viewPlanningAgent(){
       <!-- Compteur heures du mois -->
       <div class="hours-counter">
         <div class="row" style="justify-content:space-between;margin-bottom:6px">
-          <span style="font-size:12px;color:var(--muted)">Heures travaillées — ${monthName}</span>
-          <span style="font-size:12px;font-weight:800">${fmtHours(mins)} <span class="muted">/ 35h</span>${overMins>0?` <span style="color:var(--danger);font-size:11px">(+${fmtHours(overMins)} supp)</span>`:""}</span>
+          <span style="font-size:12px;color:var(--muted)">Heures — ${monthName}</span>
+          <span style="font-size:12px;font-weight:800">
+            ${fmtHours(mins)}
+            ${otMins>0?`<span style="color:#a855f7;font-size:11px"> +${fmtHours(otMins)} supp</span>`:""}
+            <span class="muted">/ 35h</span>
+            ${overMins>0?`<span style="color:var(--danger);font-size:11px"> (dépassement +${fmtHours(overMins)})</span>`:""}
+          </span>
         </div>
         <div class="hours-bar">
-          <div class="hours-bar-fill" style="width:${pct}%;background:${pct>100?"var(--danger)":"linear-gradient(90deg,var(--primary),#a855f7)"}"></div>
+          <div style="position:relative;height:7px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden">
+            <div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(100,Math.round(mins/contractMins*100))}%;background:linear-gradient(90deg,var(--primary),#4f8cff)"></div>
+            ${otMins>0?`<div style="position:absolute;left:${Math.min(100,Math.round(mins/contractMins*100))}%;top:0;height:100%;width:${Math.min(100-Math.min(100,Math.round(mins/contractMins*100)),Math.round(otMins/contractMins*100))}%;background:#a855f7"></div>`:""}
+          </div>
+        </div>
+        <div class="row" style="gap:12px;margin-top:5px">
+          <span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:999px;background:var(--primary);display:inline-block"></span>Planifié</span>
+          ${otMins>0?`<span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:999px;background:#a855f7;display:inline-block"></span>Heures supp</span>`:""}
         </div>
       </div>
       <div class="hr"></div>
