@@ -2418,6 +2418,366 @@ function exportPlanningPDF(){
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
+
+
+// ═══════════════════════════════════════════════════════════════
+// DESKTOP LAYOUT ENHANCEMENTS
+// Surcharge les fonctions view uniquement sur grand écran
+// ═══════════════════════════════════════════════════════════════
+
+const _isDesktop = () => window.innerWidth >= 1200;
+
+// ── Dashboard direction : 2 colonnes ──────────────────────────
+const _origViewDashboard = viewDashboard;
+function viewDashboard(){
+  const html = _origViewDashboard();
+  if(!_isDesktop()) return html;
+
+  const today=iso(new Date());
+  const todayShifts=state.shifts.filter(s=>s.date===today);
+  const units=[...new Set(state.shifts.map(s=>s.unit))].sort();
+  const now=new Date();
+  const ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  const pending=pendingCount();
+  const agentsToday=[...new Set(todayShifts.map(s=>s.userId))].length;
+  const otMins=state.overtime.filter(o=>o.status==="approved"&&o.date.startsWith(ym)).reduce((a,o)=>a+o.minutes,0);
+  const otDisplay=otMins>=60?`${Math.floor(otMins/60)}h${otMins%60?String(otMins%60).padStart(2,"0"):""}`:otMins?`${otMins} min`:"0";
+  const quickItems=[
+    ...state.swapRequests.filter(r=>r.status==="pending"),
+    ...state.leaveRequests.filter(r=>r.status==="pending"),
+    ...state.overtime.filter(r=>r.status==="pending"),
+  ].slice(0,5);
+  const otByAgent=state.users.filter(u=>u.role==="agent").map(u=>{
+    const mins=state.overtime.filter(o=>o.userId===u.id&&o.status==="approved"&&o.date.startsWith(ym)).reduce((a,o)=>a+o.minutes,0);
+    return {id:u.id,name:u.name,unit:u.unit,mins};
+  }).filter(x=>x.mins>0);
+
+  const leftCol = `
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(79,140,255,.18);color:#4f8cff">${icons.calendar}</div>
+        <div class="kpi-val">${agentsToday}</div>
+        <div class="kpi-label">Agents aujourd'hui</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(${pending>0?"255,79,109":"50,213,131"},.18);color:${pending>0?"#ff4f6d":"#32d583"}">${icons.check}</div>
+        <div class="kpi-val">${pending}</div>
+        <div class="kpi-label">En attente</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(168,85,247,.18);color:#a855f7">${icons.clock}</div>
+        <div class="kpi-val">${otDisplay}</div>
+        <div class="kpi-label">Heures supp (mois)</div>
+      </div>
+    </div>
+    <div class="carditem">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 style="margin:0">Planning du jour — ${fmtDate(today)}</h3>
+        <div class="row gap">
+          <button class="btn small ghost" id="btnExportPDF" style="display:flex;align-items:center;gap:4px">📄 Export PDF</button>
+          <button class="btn small ghost" id="btnAddShift" style="display:flex;align-items:center;gap:4px">${icons.plus} Ajouter</button>
+        </div>
+      </div>
+      ${units.map(unit=>{
+        const sh=todayShifts.filter(s=>s.unit===unit);
+        return `<div class="muted" style="font-weight:750;margin:8px 0 4px">${unit}</div>`+
+          (sh.length?sh.map(s=>`
+            <div class="detail-line">
+              <div class="left"><div style="font-weight:900">${s.start}–${s.end}</div><div class="muted">${s.label}</div></div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="tag ${shiftCls(s.label)}">${s.label}</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div style="width:24px;height:24px;border-radius:7px;background:${avatarColor(s.userId)};display:grid;place-items:center;font-weight:900;font-size:10px;flex-shrink:0">${avatarInitials(userName(s.userId))}</div>
+                  <span style="font-size:12px;font-weight:750">${userName(s.userId)}</span>
+                </div>
+              </div>
+            </div>`).join(""):`<div class="muted" style="margin-bottom:8px">Aucun horaire.</div>`);
+      }).join("")}
+    </div>
+    ${otByAgent.length?`
+    <div class="carditem">
+      <h3>Heures supp — ${now.toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}</h3>
+      ${otByAgent.map(x=>{
+        const h=Math.floor(x.mins/60),m=x.mins%60;
+        const disp=h>0?`${h}h${m?String(m).padStart(2,"0"):""}`:`${m} min`;
+        const pct=Math.min(100,Math.round(x.mins/120*100));
+        return `<div style="margin-bottom:12px">
+          <div class="row" style="justify-content:space-between;margin-bottom:5px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:26px;height:26px;border-radius:8px;background:${avatarColor(x.id)};display:grid;place-items:center;font-weight:900;font-size:10px;flex-shrink:0">${avatarInitials(x.name)}</div>
+              <span style="font-weight:800;font-size:13px">${x.name}</span>
+            </div>
+            <span style="font-size:12px;color:var(--muted)">${x.unit} • <strong style="color:var(--text)">${disp}</strong></span>
+          </div>
+          <div style="height:6px;border-radius:999px;background:rgba(255,255,255,.08)">
+            <div style="height:100%;border-radius:999px;width:${pct}%;background:linear-gradient(90deg,var(--primary),#a855f7)"></div>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`:""}`;
+
+  const rightCol = `
+    <div class="carditem" style="position:sticky;top:0">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 style="margin:0">Demandes en attente</h3>
+        <button class="btn small ghost" id="btnGoValidations">Tout voir →</button>
+      </div>
+      ${quickItems.length?`<div class="cardlist">${quickItems.map(r=>r.requesterShiftId!==undefined?quickSwapCard(r):r.type!==undefined?quickLeaveCard(r):quickOTCard(r)).join("")}</div>`:
+      `<div style="text-align:center;padding:30px 0;color:var(--muted)">🎉 Aucune demande !</div>`}
+    </div>`;
+
+  return `<div style="display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start">
+    <div>${leftCol}</div>
+    <div>${rightCol}</div>
+  </div>`;
+}
+
+// ── Validations : 3 colonnes ───────────────────────────────────
+const _origViewValidations = viewValidations;
+function viewValidations(){
+  if(!_isDesktop()) return _origViewValidations();
+
+  const sp=state.swapRequests.filter(r=>r.status==="pending").slice().reverse();
+  const lp=state.leaveRequests.filter(r=>r.status==="pending").slice().reverse();
+  const op=state.overtime.filter(r=>r.status==="pending").slice().reverse();
+  const total=sp.length+lp.length+op.length;
+
+  return `
+    <div style="margin-bottom:14px">
+      <h3 style="margin:0 0 4px">Validations</h3>
+      <div class="muted">${total>0?`${total} demande(s) en attente`:"Aucune demande en attente 🎉"}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start">
+      <div>
+        <div class="section-title">Échanges (${sp.length})</div>
+        <div class="cardlist">${sp.length?sp.map(r=>validationSwapCard(r)).join("") :`<div class="carditem muted">Aucune demande.</div>`}</div>
+      </div>
+      <div>
+        <div class="section-title">Absences & Congés (${lp.length})</div>
+        <div class="cardlist">${lp.length?lp.map(r=>validationLeaveCard(r)).join("") :`<div class="carditem muted">Aucune demande.</div>`}</div>
+      </div>
+      <div>
+        <div class="section-title">Heures supp (${op.length})</div>
+        <div class="cardlist">${op.length?op.map(r=>validationOTCard(r)).join("") :`<div class="carditem muted">Aucune déclaration.</div>`}</div>
+      </div>
+    </div>`;
+}
+
+// ── Messagerie : 2 panneaux ────────────────────────────────────
+const _origViewMessagesAgent = viewMessagesAgent;
+function viewMessagesAgent(){
+  if(!_isDesktop()) return _origViewMessagesAgent();
+
+  const u=me();
+  const peers=[...state.users.filter(x=>x.role==="agent"&&x.unit===u.unit&&x.id!==u.id),...state.users.filter(x=>x.role==="direction")];
+  const peer=peers.find(p=>p.id===activeChatPeer)||peers[0];
+  if(peer) activeChatPeer=peer.id;
+  const msgs=state.messages[convo(u.id,peer?.id)]||[];
+
+  return `<div style="display:grid;grid-template-columns:240px 1fr;gap:0;height:calc(100vh - 56px - 80px);border:1px solid var(--line);border-radius:18px;overflow:hidden;background:rgba(255,255,255,.02)">
+    <!-- Peers panel -->
+    <div style="border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:14px 12px;border-bottom:1px solid var(--line);font-weight:800;font-size:14px">Conversations</div>
+      <div style="flex:1;overflow-y:auto;padding:8px">
+        ${peers.map(p=>`
+          <div class="desk-chat-peer ${p.id===activeChatPeer?"active":""}" data-peer="${p.id}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background .1s;margin-bottom:4px;background:${p.id===activeChatPeer?"rgba(79,140,255,.12)":"transparent"}">
+            <div style="width:36px;height:36px;border-radius:11px;background:${avatarColor(p.id)};display:grid;place-items:center;font-weight:900;font-size:13px;flex-shrink:0">${avatarInitials(p.name)}</div>
+            <div>
+              <div style="font-weight:700;font-size:13px">${p.name}</div>
+              <div class="muted">${p.unit}${p.role==="direction"?" • Direction":""}</div>
+            </div>
+          </div>`).join("")}
+      </div>
+    </div>
+    <!-- Chat panel -->
+    <div style="display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.02)">
+        <div style="width:34px;height:34px;border-radius:10px;background:${avatarColor(peer?.id||"")};display:grid;place-items:center;font-weight:900;font-size:12px">${avatarInitials(peer?.name||"")}</div>
+        <div><div style="font-weight:800">${peer?.name||""}</div><div class="muted">${peer?.unit||""}</div></div>
+      </div>
+      <div id="chat" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:10px">
+        ${msgs.length?msgs.map(m=>bubble(m,m.from===u.id)).join(""):`<div class="chat-empty">${icons.msg}<div>Démarrez la conversation…</div></div>`}
+      </div>
+      <div style="padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;background:rgba(11,18,32,.9)">
+        <button class="iconbtn primary" id="btnSwapInChat">${icons.swap}</button>
+        <input id="chatInput" placeholder="Message…" style="flex:1"/>
+        <button class="iconbtn primary" id="btnSendMsg">${icons.send}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+const _origViewMessagesDirection = viewMessagesDirection;
+function viewMessagesDirection(){
+  if(!_isDesktop()) return _origViewMessagesDirection();
+
+  const u=me();
+  const agents=state.users.filter(x=>x.role==="agent");
+  const peer=agents.find(a=>a.id===activeChatPeerDir)||agents[0];
+  if(peer) activeChatPeerDir=peer.id;
+  const msgs=state.messages[convo(u.id,peer?.id)]||[];
+
+  return `<div style="display:grid;grid-template-columns:260px 1fr;gap:0;height:calc(100vh - 56px - 80px);border:1px solid var(--line);border-radius:18px;overflow:hidden;background:rgba(255,255,255,.02)">
+    <div style="border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:14px 12px;border-bottom:1px solid var(--line);font-weight:800;font-size:14px">Agents</div>
+      <div style="flex:1;overflow-y:auto;padding:8px">
+        ${agents.map(a=>`
+          <div class="desk-chat-peer-dir ${a.id===activeChatPeerDir?"active":""}" data-peer="${a.id}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;margin-bottom:4px;background:${a.id===activeChatPeerDir?"rgba(79,140,255,.12)":"transparent"}">
+            <div style="width:36px;height:36px;border-radius:11px;background:${avatarColor(a.id)};display:grid;place-items:center;font-weight:900;font-size:13px;flex-shrink:0">${avatarInitials(a.name)}</div>
+            <div>
+              <div style="font-weight:700;font-size:13px">${a.name}</div>
+              <div class="muted">${a.unit}</div>
+            </div>
+          </div>`).join("")}
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.02)">
+        <div style="width:34px;height:34px;border-radius:10px;background:${avatarColor(peer?.id||"")};display:grid;place-items:center;font-weight:900;font-size:12px">${avatarInitials(peer?.name||"")}</div>
+        <div><div style="font-weight:800">${peer?.name||""}</div><div class="muted">${peer?.unit||""}</div></div>
+      </div>
+      <div id="chat" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:10px">
+        ${msgs.length?msgs.map(m=>bubble(m,m.from===u.id)).join(""):`<div class="chat-empty">${icons.msg}<div>Démarrez la conversation…</div></div>`}
+      </div>
+      <div style="padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px">
+        <input id="chatInputDir" placeholder="Message à l'agent…" style="flex:1"/>
+        <button class="iconbtn primary" id="btnSendMsgDir">${icons.send}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Profil agent : 2 colonnes ──────────────────────────────────
+const _origViewProfileAgent = viewProfileAgent;
+function viewProfileAgent(){
+  if(!_isDesktop()) return _origViewProfileAgent();
+  const u=me(), p=state.profiles[u.id]||{userId:u.id};
+  const myNotifs=(state.notifications||[]).filter(n=>n.userId===u.id).slice().reverse();
+
+  const leftCol = `
+    ${myNotifs.length?`<div class="carditem">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 style="margin:0">Notifications</h3>
+        <button class="btn small ghost" id="btnClearNotifs">Tout marquer lu</button>
+      </div>
+      ${myNotifs.slice(0,5).map(n=>`<div class="notif-item ${n.read?"read":"unread"}"><div style="font-size:13px">${n.msg}</div><div class="muted">${n.time}</div></div>`).join("")}
+    </div>`:""}
+    <div class="carditem">
+      <h3>Profil & santé</h3><div class="muted">Visible par la direction.</div><div class="hr"></div>
+      <div class="section-title">Informations personnelles</div>
+      <div class="grid2">
+        <div class="field"><label>Date de naissance</label><input id="p_birth" type="date" value="${p.birthDate||""}"/></div>
+        <div class="field"><label>Taille (cm)</label><input id="p_height" type="number" value="${p.heightCm||""}" placeholder="165"/></div>
+      </div>
+      <div class="grid2" style="margin-top:10px">
+        <div class="field"><label>Poids (kg)</label><input id="p_weight" type="number" value="${p.weightKg||""}" placeholder="65"/></div>
+        <div class="field"><label>Groupe sanguin</label><input id="p_blood" value="${p.bloodType||""}" placeholder="Ex: O+"/></div>
+      </div>
+      <div class="hr"></div>
+      <div class="section-title">Santé</div>
+      <div class="field"><label>Allergies</label>${renderTagPicker("p_allergies",p.allergies||"")}</div>
+      <div class="field" style="margin-top:10px"><label>Traitements</label>${renderTagPicker("p_treatments",p.treatments||"")}</div>
+      <div class="field" style="margin-top:10px"><label>Notes</label><textarea id="p_notes" placeholder="Ex: asthme léger…">${p.notes||""}</textarea></div>
+      <div class="hr"></div>
+      <div class="section-title">Contact d'urgence</div>
+      <div class="grid2">
+        <div class="field"><label>Nom</label><input id="p_em_name" value="${p.emergencyName||""}" placeholder="Ex: Maman"/></div>
+        <div class="field"><label>Téléphone</label><input id="p_em_phone" value="${p.emergencyPhone||""}" placeholder="06 …"/></div>
+      </div>
+      <button class="btn primary" id="btnSaveProfile">Enregistrer</button>
+      <div class="muted" id="profileSaved">${p.updatedAt?"Dernière mise à jour : "+p.updatedAt:""}</div>
+    </div>`;
+
+  const rightCol = `
+    <div class="carditem">
+      <h3>Absences / Congés</h3><div class="muted">La direction sera notifiée.</div><div class="hr"></div>
+      <div class="field"><label>Type</label><select id="leaveType"><option>Congés payés</option><option>Congé sans solde</option><option>Arrêt maladie</option><option>Autre</option></select></div>
+      <div class="grid2" style="margin-top:10px">
+        <div class="field"><label>Du</label><input type="date" id="leaveFrom" value="${iso(new Date())}"/></div>
+        <div class="field"><label>Au</label><input type="date" id="leaveTo" value="${iso(new Date())}"/></div>
+      </div>
+      <div class="field" style="margin-top:10px"><label>Note</label><input id="leaveNote" placeholder="Optionnel"/></div>
+      <button class="btn primary" id="btnSendLeave">Envoyer à la direction</button>
+      <div class="hr"></div>
+      <div class="section-title">Mes demandes</div>
+      <div class="cardlist">${state.leaveRequests.filter(r=>r.userId===u.id).slice().reverse().map(leaveCard).join("")||`<div class="muted">Aucune demande.</div>`}</div>
+    </div>
+    <div class="carditem" id="ot-section">
+      <h3>Heures supplémentaires</h3><div class="muted">La direction valide.</div><div class="hr"></div>
+      <div class="grid2">
+        <div class="field"><label>Durée</label><select id="otMinutes"><option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1 h</option><option value="90">1 h 30</option></select></div>
+        <div class="field"><label>Date</label><input type="date" id="otDate" value="${iso(new Date())}"/></div>
+      </div>
+      <div class="field" style="margin-top:10px"><label>Motif</label><input id="otNote" placeholder="Ex : transmission longue…"/></div>
+      <button class="btn primary" id="btnSendOT">Déclarer</button>
+      <div class="hr"></div>
+      <div class="section-title">Mes déclarations</div>
+      <div class="cardlist">${state.overtime.filter(o=>o.userId===u.id).slice().reverse().map(otCard).join("")||`<div class="muted">Aucune déclaration.</div>`}</div>
+    </div>`;
+
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start">
+    <div>${leftCol}</div><div>${rightCol}</div>
+  </div>`;
+}
+
+// ── Profils direction : grille 3 colonnes ─────────────────────
+const _origViewProfilesDirection = viewProfilesDirection;
+function viewProfilesDirection(){
+  if(!_isDesktop()) return _origViewProfilesDirection();
+  const agents=state.users.filter(u=>u.role==="agent");
+  return `
+    <div style="margin-bottom:14px"><h3 style="margin:0 0 4px">Profils & santé</h3><div class="muted">Lecture seule • accès réservé à la direction</div></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+      ${agents.map(a=>{
+        const p=state.profiles[a.id]||{};
+        const filled=p.birthDate||p.bloodType||p.allergies;
+        return `<div class="carditem">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <div style="width:40px;height:40px;border-radius:13px;background:${avatarColor(a.id)};display:grid;place-items:center;font-weight:900;font-size:15px;flex-shrink:0">${avatarInitials(a.name)}</div>
+            <div style="flex:1"><div style="font-weight:850">${a.name}</div><div class="muted">${a.unit}</div></div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+            ${p.bloodType?`<span class="badge">🩸 ${p.bloodType}</span>`:""}
+            ${p.allergies?`<span class="badge no">⚠ Allergie</span>`:""}
+            ${p.treatments?`<span class="badge warn">💊 Traitement</span>`:""}
+            ${!filled?`<span class="badge">Fiche vide</span>`:""}
+          </div>
+          <button class="btn small ghost" style="width:100%" data-open-profile="${a.id}">Voir fiche →</button>
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+
+// ── Bind desktop chat peer clicks ──────────────────────────────
+const _origAttachHandlers = attachHandlers;
+function attachHandlers(tabId){
+  _origAttachHandlers(tabId);
+  if(!_isDesktop()) return;
+
+  // Message peers desktop
+  document.querySelectorAll(".desk-chat-peer").forEach(el=>{
+    el.addEventListener("click",()=>{
+      activeChatPeer=el.getAttribute("data-peer");
+      renderTab(tabId);
+      setTimeout(()=>{ const c=document.getElementById("chat"); if(c) c.scrollTop=9999; },50);
+    });
+  });
+  document.querySelectorAll(".desk-chat-peer-dir").forEach(el=>{
+    el.addEventListener("click",()=>{
+      activeChatPeerDir=el.getAttribute("data-peer");
+      renderTab(tabId);
+      setTimeout(()=>{ const c=document.getElementById("chat"); if(c) c.scrollTop=9999; },50);
+    });
+  });
+}
+
+// ── Re-render on resize ────────────────────────────────────────
+let _rTimer;
+window.addEventListener("resize",()=>{
+  clearTimeout(_rTimer);
+  _rTimer=setTimeout(()=>{ if(state.session?.userId) render(); },300);
+});
+
 render();
 saveState();
 
