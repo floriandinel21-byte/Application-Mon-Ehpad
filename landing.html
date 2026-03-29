@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>EHPAD Staff — Accueil</title>
+<style>
+:root{
+  --bg:#07101f;
+  --primary:#4f8cff;
+  --primary2:#2f6df0;
+  --success:#32d583;
+  --text:#eef3ff;
+  --muted:#7a90b5;
+  --line:rgba(255,255,255,.08);
+  --card:#0f1a30;
+  --shadow:0 20px 60px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
+body{
+  background:
+    radial-gradient(900px 600px at 15% -10%, rgba(79,140,255,.28), transparent 60%),
+    radial-gradient(700px 500px at 100% 80%, rgba(50,213,131,.2), transparent 55%),
+    var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;
+}
+
+.logo{
+  width:64px;height:64px;border-radius:18px;
+  background:linear-gradient(135deg,var(--primary),var(--primary2));
+  display:grid;place-items:center;
+  font-weight:900;font-size:28px;
+  box-shadow:0 12px 40px rgba(79,140,255,.45);
+  margin:0 auto 20px;
+}
+.title{font-size:32px;font-weight:900;text-align:center;margin-bottom:8px}
+.sub{color:var(--muted);text-align:center;font-size:15px;margin-bottom:48px;max-width:400px}
+
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%;max-width:600px;margin-bottom:40px}
+@media(max-width:520px){.cards{grid-template-columns:1fr}}
+
+.device-card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:28px 24px;
+  text-align:center;
+  text-decoration:none;
+  color:var(--text);
+  transition:all .2s;
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+  position:relative;overflow:hidden;
+}
+.device-card::before{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(79,140,255,.08),transparent);
+  opacity:0;transition:opacity .2s;
+}
+.device-card:hover{transform:translateY(-4px);box-shadow:var(--shadow);border-color:rgba(79,140,255,.35);}
+.device-card:hover::before{opacity:1}
+.device-card.mobile::before{background:linear-gradient(135deg,rgba(50,213,131,.08),transparent)}
+.device-card.mobile:hover{border-color:rgba(50,213,131,.35);}
+
+.device-icon{font-size:48px;line-height:1}
+.device-title{font-size:18px;font-weight:900}
+.device-desc{font-size:13px;color:var(--muted);line-height:1.5}
+.device-btn{
+  margin-top:8px;padding:10px 22px;border-radius:10px;border:none;
+  font-weight:800;font-size:14px;cursor:pointer;
+  transition:all .15s;
+}
+.device-card:not(.mobile) .device-btn{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;}
+.device-card.mobile .device-btn{background:linear-gradient(135deg,var(--success),#1fb06a);color:#fff;}
+
+.features{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:10px;
+  max-width:600px;margin-bottom:32px;
+}
+.feature-pill{
+  padding:6px 14px;border-radius:999px;
+  border:1px solid var(--line);
+  font-size:12px;color:var(--muted);
+  background:rgba(255,255,255,.03);
+}
+
+.footer{font-size:12px;color:var(--muted);text-align:center}
+.footer a{color:var(--muted);text-decoration:none}
+
+/* Auto-redirect hint */
+.auto-hint{
+  font-size:12px;color:var(--muted);
+  margin-top:10px;display:flex;align-items:center;gap:6px;justify-content:center;
+}
+.dot-live{width:7px;height:7px;border-radius:999px;background:var(--success);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+</style>
+</head>
+<body>
+
+<div class="logo">E</div>
+<div class="title">EHPAD Staff</div>
+<div class="sub">Plateforme de gestion du personnel — Choisissez votre interface ou laissez la redirection automatique agir.</div>
+
+<div class="cards">
+  <a class="device-card" href="./app/" id="cardDesktop">
+    <div class="device-icon">🖥️</div>
+    <div class="device-title">Version Bureau</div>
+    <div class="device-desc">Interface complète avec sidebar, multi-colonnes et calendrier étendu.</div>
+    <div class="device-btn">Ouvrir →</div>
+  </a>
+  <a class="device-card mobile" href="./index.html" id="cardMobile">
+    <div class="device-icon">📱</div>
+    <div class="device-title">Version Mobile</div>
+    <div class="device-desc">Interface optimisée pour smartphone et tablette avec navigation tactile.</div>
+    <div class="device-btn">Ouvrir →</div>
+  </a>
+</div>
+
+<div class="features">
+  <span class="feature-pill">✓ 100% local</span>
+  <span class="feature-pill">✓ Sans serveur</span>
+  <span class="feature-pill">✓ Planning</span>
+  <span class="feature-pill">✓ Messagerie</span>
+  <span class="feature-pill">✓ Échanges d'horaires</span>
+  <span class="feature-pill">✓ Validations</span>
+  <span class="feature-pill">✓ Profil santé</span>
+  <span class="feature-pill">✓ Export PDF</span>
+</div>
+
+<div class="auto-hint">
+  <div class="dot-live"></div>
+  Redirection automatique dans <span id="countdown">3</span>s…
+</div>
+
+<div class="footer" style="margin-top:20px">EHPAD Staff Demo · Données locales uniquement</div>
+
+<script>
+// Auto-detect and redirect
+const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+// Highlight the right card
+document.getElementById(isMobile ? 'cardMobile' : 'cardDesktop').style.boxShadow = '0 0 0 2px rgba(79,140,255,.5), 0 20px 60px rgba(0,0,0,.5)';
+
+// Countdown and redirect
+let t = 3;
+const el = document.getElementById('countdown');
+const timer = setInterval(() => {
+  t--;
+  el.textContent = t;
+  if(t <= 0){
+    clearInterval(timer);
+    window.location.href = isMobile ? './index.html' : './app/';
+  }
+}, 1000);
+
+// Cancel redirect on click
+document.querySelectorAll('.device-card').forEach(c => c.addEventListener('click', () => clearInterval(timer)));
+</script>
+</body>
+</html>
