@@ -645,7 +645,7 @@ const MEDICATIONS_LIST = [
   • Fix clavier mobile : chatbar reste au-dessus du clavier (visualViewport)
 */
 
-const LS_KEY = "ehpad_demo_state_v6";
+const LS_KEY = "ehpad_demo_state_v7";
 const AVATAR_COLORS = ["#4f8cff","#32d583","#ff9f43","#ff4f6d","#a855f7"];
 
 const icons = {
@@ -1257,10 +1257,28 @@ function loadState(){
     ],
   };
 
-  return {session:{role:"agent",userId:"u1"},users,shifts,swapRequests,leaveRequests,overtime,profiles,messages,ui:{}};
+  // Compteur congés (25 jours/an par défaut)
+  const congesRestants={};
+  users.filter(u=>u.role==="agent").forEach(u=>{
+    const used=leaveRequests.filter(r=>r.userId===u.id&&r.status==="approved"&&r.type==="Congés payés").reduce((a,r)=>a+Math.round((new Date(r.to+"T00:00:00")-new Date(r.from+"T00:00:00"))/86400000)+1,0);
+    congesRestants[u.id]={total:25,used};
+  });
+
+  return {session:{role:"agent",userId:"u1"},users,shifts,swapRequests,leaveRequests,overtime,profiles,messages,ui:{},congesRestants,alertes:[]};
 }
 
-function saveState(){ localStorage.setItem(LS_KEY,JSON.stringify(state)); }
+function saveState(){
+  // Ensure new fields exist for backward compat
+  if(!state.congesRestants) state.congesRestants={};
+  if(!state.alertes) state.alertes=[];
+  state.users.filter(u=>u.role==="agent").forEach(u=>{
+    if(!state.congesRestants[u.id]){
+      const used=state.leaveRequests.filter(r=>r.userId===u.id&&r.status==="approved"&&r.type==="Congés payés").reduce((a,r)=>a+Math.round((new Date(r.to+"T00:00:00")-new Date(r.from+"T00:00:00"))/86400000)+1,0);
+      state.congesRestants[u.id]={total:25,used};
+    }
+  });
+  localStorage.setItem(LS_KEY,JSON.stringify(state));
+}
 
 // ── État ──────────────────────────────────────────────────────────────────────
 let state=loadState();
@@ -2415,6 +2433,169 @@ function exportPlanningPDF(){
   const win=window.open("","_blank");
   if(win){ win.document.write(html); win.document.close(); }
   else toast("Autorisez les pop-ups pour exporter");
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// NOUVELLES FONCTIONNALITÉS
+// ═══════════════════════════════════════════════════════════════
+
+// ── Compteur congés restants ───────────────────────────────────
+function getCongesRestants(uid){
+  if(!state.congesRestants) state.congesRestants={};
+  if(!state.congesRestants[uid]){
+    const used=state.leaveRequests.filter(r=>r.userId===uid&&r.status==="approved"&&r.type==="Congés payés").reduce((a,r)=>a+Math.round((new Date(r.to+"T00:00:00")-new Date(r.from+"T00:00:00"))/86400000)+1,0);
+    state.congesRestants[uid]={total:25,used};
+  }
+  const {total,used}=state.congesRestants[uid];
+  return {total,used,remaining:total-used};
+}
+
+function renderCongesCounter(uid){
+  const {total,used,remaining}=getCongesRestants(uid);
+  const pct=Math.round(used/total*100);
+  const color=remaining<=5?"#ff4f6d":remaining<=10?"#ffb830":"#32d583";
+  return `
+    <div class="carditem">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 style="margin:0">🏖️ Congés payés</h3>
+        <span class="badge ${remaining<=5?"no":remaining<=10?"warn":"ok"}">${remaining} restant${remaining>1?"s":""} / ${total}</span>
+      </div>
+      <div style="height:8px;border-radius:999px;background:rgba(255,255,255,.08);margin-bottom:8px;overflow:hidden">
+        <div style="height:100%;border-radius:999px;width:${pct}%;background:${color};transition:width .5s"></div>
+      </div>
+      <div class="muted">${used} jour${used>1?"s":""} utilisé${used>1?"s":""} sur ${total} jours annuels</div>
+      ${remaining<=5?`<div style="margin-top:8px;padding:8px 10px;border-radius:10px;background:rgba(255,79,109,.1);border:1px solid rgba(255,79,109,.25);font-size:12px;color:#ff9fb3">⚠️ Attention : solde de congés faible</div>`:""}
+    </div>`;
+}
+
+// ── Gestion des remplacements ──────────────────────────────────
+function viewRemplacements(){
+  const today=iso(new Date());
+  const absents=state.leaveRequests.filter(r=>r.status==="approved"&&r.from<=today&&r.to>=today);
+  const disponibles=state.users.filter(u=>{
+    if(u.role!=="agent") return false;
+    const absent=absents.find(r=>r.userId===u.id);
+    const travaille=state.shifts.find(s=>s.userId===u.id&&s.date===today);
+    return !absent&&!travaille;
+  });
+
+  return `
+    <div class="carditem">
+      <h3>🔄 Remplacements du jour</h3>
+      <div class="muted">${today} — agents absents avec congé approuvé</div>
+      <div class="hr"></div>
+      ${absents.length?`
+        <div class="section-title">Absents aujourd'hui (${absents.length})</div>
+        <div class="cardlist">
+          ${absents.map(r=>{
+            const u=state.users.find(x=>x.id===r.userId);
+            return `<div class="carditem" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:36px;height:36px;border-radius:12px;background:${avatarColor(r.userId)};display:grid;place-items:center;font-weight:900;font-size:13px;flex-shrink:0">${avatarInitials(userName(r.userId))}</div>
+                <div><div style="font-weight:850">${userName(r.userId)}</div><div class="muted">${u?.unit||""} • ${r.type}</div></div>
+              </div>
+              <span class="badge no">Absent</span>
+            </div>`;
+          }).join("")}
+        </div>
+        <div class="hr"></div>
+        <div class="section-title">Disponibles pour remplacement (${disponibles.length})</div>
+        <div class="cardlist">
+          ${disponibles.length?disponibles.map(u=>`
+            <div class="carditem" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:36px;height:36px;border-radius:12px;background:${avatarColor(u.id)};display:grid;place-items:center;font-weight:900;font-size:13px;flex-shrink:0">${avatarInitials(u.name)}</div>
+                <div><div style="font-weight:850">${u.name}</div><div class="muted">${u.unit} • Disponible</div></div>
+              </div>
+              <button class="btn small primary" data-contact-remplacement="${u.id}">Contacter</button>
+            </div>`).join(""):
+          `<div class="muted">Aucun agent disponible ce jour.</div>`}
+        </div>`
+      :`<div style="text-align:center;padding:20px;color:var(--muted)">✅ Aucune absence aujourd'hui !</div>`}
+    </div>`;
+}
+
+// ── Alertes automatiques ───────────────────────────────────────
+function checkAlertes(){
+  const today=iso(new Date());
+  const now=new Date();
+  const ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  const alerts=[];
+
+  // Agents avec beaucoup d'heures supp
+  state.users.filter(u=>u.role==="agent").forEach(u=>{
+    const otMins=state.overtime.filter(o=>o.userId===u.id&&o.status==="approved"&&o.date.startsWith(ym)).reduce((a,o)=>a+o.minutes,0);
+    if(otMins>=120) alerts.push({type:"warn",msg:`${userName(u.id)} : ${Math.floor(otMins/60)}h${otMins%60?String(otMins%60).padStart(2,"0"):""} supp ce mois`,icon:"⚠️"});
+  });
+
+  // Demandes en attente depuis longtemps (>3 jours)
+  const old3days=new Date(); old3days.setDate(old3days.getDate()-3);
+  state.swapRequests.filter(r=>r.status==="pending").forEach(r=>{
+    alerts.push({type:"info",msg:`Échange ${r.requesterName||userName(r.requesterId)} ↔ ${r.targetName||userName(r.targetId)} en attente`,icon:"🔄"});
+  });
+
+  // Congés faibles
+  state.users.filter(u=>u.role==="agent").forEach(u=>{
+    const {remaining}=getCongesRestants(u.id);
+    if(remaining<=3) alerts.push({type:"danger",msg:`${userName(u.id)} : seulement ${remaining} jour(s) de congés restants`,icon:"🏖️"});
+  });
+
+  return alerts.slice(0,6);
+}
+
+function renderAlertes(){
+  const alerts=checkAlertes();
+  if(!alerts.length) return "";
+  const colors={warn:"rgba(255,184,48,.1)",info:"rgba(79,140,255,.1)",danger:"rgba(255,79,109,.1)"};
+  const borders={warn:"rgba(255,184,48,.3)",info:"rgba(79,140,255,.3)",danger:"rgba(255,79,109,.3)"};
+  return `
+    <div class="carditem">
+      <h3 style="margin-bottom:10px">🔔 Alertes automatiques</h3>
+      ${alerts.map(a=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:8px;background:${colors[a.type]||colors.info};border:1px solid ${borders[a.type]||borders.info}">
+          <span style="font-size:18px;flex-shrink:0">${a.icon}</span>
+          <span style="font-size:13px">${a.msg}</span>
+        </div>`).join("")}
+    </div>`;
+}
+
+// ── Patcher viewDashboard pour ajouter alertes + remplacements ─
+const _origDashWithAlertes = viewDashboard;
+function viewDashboard(){
+  const base = _origDashWithAlertes();
+  if(isDirection()){
+    // Add alertes + remplacements after KPIs
+    const alertesHtml = renderAlertes();
+    const remplacementsHtml = viewRemplacements();
+    // Inject alertes block after kpi-grid
+    return base.replace('</div>\n\n    <div class="carditem">', `</div>\n${alertesHtml}\n${remplacementsHtml}\n    <div class="carditem">`);
+  }
+  return base;
+}
+
+// ── Patcher viewProfileAgent pour ajouter compteur congés ──────
+const _origProfileWithConges = viewProfileAgent;
+function viewProfileAgent(){
+  const base = _origProfileWithConges();
+  const u=me();
+  const counter=renderCongesCounter(u.id);
+  // Inject after first carditem (profil section)
+  return counter + base;
+}
+
+// ── Handler : contacter pour remplacement → ouvre messagerie ──
+const _origAttachWithRemplacement = attachHandlers;
+function attachHandlers(tabId){
+  _origAttachWithRemplacement(tabId);
+  document.querySelectorAll("[data-contact-remplacement]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const uid=btn.getAttribute("data-contact-remplacement");
+      activeChatPeerDir=uid;
+      navigate("messages_dir");
+      toast(`💬 Conversation ouverte avec ${userName(uid)}`);
+    });
+  });
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
