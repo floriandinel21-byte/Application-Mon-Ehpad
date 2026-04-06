@@ -709,6 +709,29 @@ function countLeaveDays(from, to){
   const a=new Date(from+"T00:00:00"), b=new Date(to+"T00:00:00");
   return Math.round((b-a)/86400000)+1;
 }
+function leaveUsedDays(userId){
+  const year = new Date().getFullYear().toString();
+  return state.leaveRequests
+    .filter(r=>r.userId===userId && r.status==="approved" && r.type==="Cong\u00e9s pay\u00e9s" && r.from && r.from.startsWith(year))
+    .reduce((acc,r)=>acc+daysBetween(r.from,r.to),0);
+}
+function leaveRemainingBar(userId, label){
+  const used = leaveUsedDays(userId);
+  const total = 25;
+  const remaining = Math.max(0, total - used);
+  const pct = Math.min(100, Math.round(used/total*100));
+  const color = remaining <= 5 ? '#ff4f6d' : remaining <= 10 ? '#ff9f43' : '#32d583';
+  return '<div style="margin-bottom:14px">'
+    + (label ? '<div style="font-size:12px;color:var(--muted);margin-bottom:5px">' + label + '</div>' : '')
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'
+    + '<span style="font-weight:900;font-size:18px;color:' + color + '">' + remaining + 'j</span>'
+    + '<span style="font-size:12px;color:var(--muted)">' + used + 'j pris / ' + total + 'j</span>'
+    + '</div>'
+    + '<div style="height:8px;border-radius:999px;background:rgba(255,255,255,.08)">'
+    + '<div style="height:100%;border-radius:999px;width:' + pct + '%;background:' + color + ';transition:width .4s"></div>'
+    + '</div></div>';
+}
+
 function avatarColor(id){ const idx=["u1","u2","u3","d1"].indexOf(id); return AVATAR_COLORS[idx>=0?idx:0]; }
 function avatarInitials(name){ return name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
 function shiftCls(label){ return label==="Nuit"?"night":label==="Soir"?"soir":label==="Journée"?"journee":"matin"; }
@@ -1450,6 +1473,28 @@ function viewDashboard(){
       <div class="cardlist">${quickItems.map(r=>r.requesterShiftId!==undefined?quickSwapCard(r):r.type!==undefined?quickLeaveCard(r):quickOTCard(r)).join("")}</div>
     </div>`:""}
 
+    \${(()=>{
+      const agents=state.users.filter(u=>u.role==='agent');
+      const rows=agents.map(a=>{
+        const used=leaveUsedDays(a.id);
+        const rem=Math.max(0,25-used);
+        const pct=Math.min(100,Math.round(used/25*100));
+        const color=rem<=5?'#ff4f6d':rem<=10?'#ff9f43':'#32d583';
+        return '<div style="margin-bottom:12px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">'
+          +'<div style="display:flex;align-items:center;gap:8px">'
+          +'<div style="width:28px;height:28px;border-radius:9px;background:'+avatarColor(a.id)+';display:grid;place-items:center;font-weight:900;font-size:11px;flex-shrink:0">'+avatarInitials(a.name)+'</div>'
+          +'<span style="font-weight:800;font-size:13px">'+a.name+'</span>'
+          +'</div>'
+          +'<span style="font-size:13px;font-weight:900;color:'+color+'">'+rem+'j</span>'
+          +'</div>'
+          +'<div style="height:6px;border-radius:999px;background:rgba(255,255,255,.08)">'
+          +'<div style="height:100%;border-radius:999px;width:'+pct+'%;background:'+color+'"></div>'
+          +'</div></div>';
+      }).join('');
+      return '<div class="carditem"><h3>Congés restants</h3><div class="muted" style="margin-bottom:12px">Congés payés approuvés / 25j annuels</div>'+rows+'</div>';
+    })()}
+
     ${otByAgent.length?`
     <div class="carditem">
       <h3>Heures supp — ${now.toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}</h3>
@@ -1698,7 +1743,7 @@ function viewProfileAgent(){
       <div class="muted" id="profileSaved">${p.updatedAt?"Dernière mise à jour : "+p.updatedAt:""}</div>
     </div>
     <div class="carditem">
-      <h3>Absences / congés</h3><div class="muted">La direction sera notifiée.</div><div class="hr"></div>
+      <h3>Absences / congés</h3>\n      ${leaveRemainingBar(u.id)}\n      <div class="muted" style="margin-bottom:12px">La direction sera notifiée.</div><div class="hr"></div>
       <div class="field"><label>Type</label><select id="leaveType"><option>Congés payés</option><option>Congé sans solde</option><option>Arrêt maladie</option><option>Autre</option></select></div>
       <div class="grid2" style="margin-top:10px">
         <div class="field"><label>Du</label><input type="date" id="leaveFrom" value="${iso(new Date())}"/></div>
