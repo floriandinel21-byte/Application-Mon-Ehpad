@@ -1529,6 +1529,8 @@ function viewDashboard(){
       </div>
     </div>
 
+    <div class="desktop-2col">
+    <div>
     <div class="carditem">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
         <h3 style="margin:0">Planning du jour — ${fmtDate(today)}</h3>
@@ -1582,6 +1584,8 @@ function viewDashboard(){
       return '<div class="carditem"><h3>Congés restants</h3><div class="muted" style="margin-bottom:12px">Congés payés approuvés / 25j annuels</div>'+rows+'</div>';
     })()}
 
+    </div><!-- end col1 -->
+    <div><!-- col2 -->
     ${otByAgent.length?`
     <div class="carditem">
       <h3>Heures supp — ${now.toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}</h3>
@@ -1603,7 +1607,9 @@ function viewDashboard(){
           </div>
         </div>`;
       }).join("")}
-    </div>`:""}`;
+    </div>`:""}
+    </div><!-- end col2 -->
+    </div><!-- end desktop-2col -->`;
 }
 
 function quickSwapCard(r){
@@ -1886,16 +1892,22 @@ function viewValidations(){
   const op=state.overtime.filter(r=>r.status==="pending").slice().reverse();
   const total=sp.length+lp.length+op.length;
   return `
-    <div class="carditem">
-      <h3>Validations</h3><div class="muted">${total>0?`${total} demande(s) en attente`:"Aucune demande en attente 🎉"}</div><div class="hr"></div>
-      <div class="section-title">Échanges (${sp.length})</div>
-      <div class="cardlist">${sp.length?sp.map(r=>validationSwapCard(r)).join(""):`<div class="muted">Aucune demande.</div>`}</div>
-      <div class="hr"></div>
-      <div class="section-title">Absences & congés (${lp.length})</div>
-      <div class="cardlist">${lp.length?lp.map(r=>validationLeaveCard(r)).join(""):`<div class="muted">Aucune demande.</div>`}</div>
-      <div class="hr"></div>
-      <div class="section-title">Heures supplémentaires (${op.length})</div>
-      <div class="cardlist">${op.length?op.map(r=>validationOTCard(r)).join(""):`<div class="muted">Aucune déclaration.</div>`}</div>
+    <div class="carditem" style="margin-bottom:16px">
+      <h3>Validations</h3><div class="muted">${total>0?`${total} demande(s) en attente`:"Aucune demande en attente 🎉"}</div>
+    </div>
+    <div class="desktop-3col">
+      <div class="carditem">
+        <div class="section-title">Échanges (${sp.length})</div>
+        <div class="cardlist">${sp.length?sp.map(r=>validationSwapCard(r)).join(""):`<div class="muted">Aucune demande.</div>`}</div>
+      </div>
+      <div class="carditem">
+        <div class="section-title">Absences & congés (${lp.length})</div>
+        <div class="cardlist">${lp.length?lp.map(r=>validationLeaveCard(r)).join(""):`<div class="muted">Aucune demande.</div>`}</div>
+      </div>
+      <div class="carditem">
+        <div class="section-title">Heures supplémentaires (${op.length})</div>
+        <div class="cardlist">${op.length?op.map(r=>validationOTCard(r)).join(""):`<div class="muted">Aucune déclaration.</div>`}</div>
+      </div>
     </div>`;
 }
 
@@ -2548,7 +2560,138 @@ function exportPlanningPDF(){
       h1{font-size:18px;margin-bottom:4px} .sub{color:#a9b6d3;font-size:12px;margin-bottom:20px}
       table{border:1px solid #1e2d4a} td,th{border:1px solid #1e2d4a}
       @media print{body{background:#fff;color:#000} td,th{border:1px solid #ccc} h2{color:#000}}
-    </style>
+    
+    /* ── Desktop layout (≥ 1200px) ─────────────────────────────────────────── */
+    @media (min-width: 1200px) {
+
+      /* App container centré, plus large */
+      .app {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      /* Sidebar verticale à gauche */
+      .tabbar {
+        position: fixed;
+        left: 0; top: 0; bottom: 0;
+        width: 200px;
+        flex-direction: column;
+        justify-content: flex-start;
+        padding: 24px 0 24px;
+        border-right: 1px solid var(--line);
+        border-top: none;
+        height: 100vh;
+        overflow-y: auto;
+        background: var(--panel);
+        z-index: 100;
+      }
+      .tabbar .tab {
+        flex-direction: row;
+        gap: 12px;
+        padding: 14px 20px;
+        width: 100%;
+        justify-content: flex-start;
+        border-radius: 0;
+        font-size: 14px;
+        border-bottom: none;
+      }
+      .tabbar .tab svg {
+        width: 20px; height: 20px;
+        flex-shrink: 0;
+      }
+      .tabbar .tab.active {
+        background: rgba(79,140,255,.12);
+        border-right: 3px solid var(--primary);
+      }
+
+      /* Main content décalé à droite de la sidebar */
+      .shell {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        grid-template-rows: auto 1fr;
+        height: 100vh;
+      }
+      .header {
+        grid-column: 2;
+        grid-row: 1;
+      }
+      .main {
+        grid-column: 2;
+        grid-row: 2;
+        padding: 24px 32px;
+        overflow-y: auto;
+      }
+
+      /* Dashboard direction : 2 colonnes */
+      .main[data-tab="dashboard_dir"] > *,
+      .main > .dash-grid {
+        display: contents;
+      }
+      .main {
+        display: block;
+      }
+
+      /* KPI grid : 3 colonnes déjà, on les agrandit */
+      .kpi-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+      .kpi-card {
+        padding: 20px;
+      }
+      .kpi-val {
+        font-size: 32px;
+      }
+
+      /* Cards en 2 colonnes sur dashboard et validations */
+      .desktop-2col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+      .desktop-3col {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+
+      /* Chat en 2 panneaux */
+      .desktop-chat {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 20px;
+        align-items: start;
+        height: calc(100vh - 120px);
+      }
+      .desktop-chat .carditem {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .desktop-chat .chat {
+        flex: 1;
+        overflow-y: auto;
+        max-height: none;
+      }
+      .chatbar {
+        position: static;
+        transform: none !important;
+        width: 100%;
+        border-radius: 12px;
+        margin-top: 10px;
+      }
+    }
+
+    @media (min-width: 1200px) and (max-width: 1599px) {
+      .tabbar { width: 180px; }
+      .shell { grid-template-columns: 180px 1fr; }
+      .header { grid-column: 2; }
+      .main { grid-column: 2; padding: 20px 24px; }
+    }
+</style>
   </head><body>
     <h1>Planning EHPAD — ${capitalize(monthLabel)}</h1>
     <div class="sub">Généré le ${now.toLocaleDateString("fr-FR",{dateStyle:"full"})}</div>
