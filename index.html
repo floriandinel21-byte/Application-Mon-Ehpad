@@ -709,6 +709,10 @@ function countLeaveDays(from, to){
   const a=new Date(from+"T00:00:00"), b=new Date(to+"T00:00:00");
   return Math.round((b-a)/86400000)+1;
 }
+function daysBetween(from, to){
+  const a = new Date(from+"T00:00:00"), b = new Date(to+"T00:00:00");
+  return Math.max(1, Math.round((b-a)/86400000)+1);
+}
 function leaveUsedDays(userId){
   const year = new Date().getFullYear().toString();
   return state.leaveRequests
