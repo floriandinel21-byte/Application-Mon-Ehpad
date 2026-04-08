@@ -1423,6 +1423,53 @@ function me(){ return state.users.find(u=>u.id===state.session.userId); }
 function isDirection(){ return state.session.role==="direction"; }
 
 // ── Dashboard direction ───────────────────────────────────────────────────────
+
+function computeAlerts(){
+  const alerts = [];
+  const now = new Date();
+  const ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+
+  state.users.filter(u=>u.role==='agent').forEach(u=>{
+    // Congés faibles (< 5j restants)
+    const used = leaveUsedDays(u.id);
+    const rem = Math.max(0, 25 - used);
+    if(rem <= 5){
+      alerts.push({level:'danger', icon:'🏖️', msg: u.name + ' — seulement <strong>' + rem + 'j</strong> de congés restants'});
+    }
+
+    // Heures supp excessives (> 120 min ce mois)
+    const otMins = state.overtime
+      .filter(o=>o.userId===u.id && o.status==='approved' && o.date.startsWith(ym))
+      .reduce((a,o)=>a+o.minutes,0);
+    if(otMins > 120){
+      const h = Math.floor(otMins/60), m = otMins%60;
+      alerts.push({level:'warn', icon:'⏱️', msg: u.name + ' — <strong>' + h + 'h' + (m?String(m).padStart(2,'0'):'') + '</strong> de supp ce mois'});
+    }
+  });
+
+  // Demandes en attente depuis > 48h
+  const cutoff = Date.now() - 48*3600*1000;
+  [...state.swapRequests, ...state.leaveRequests, ...state.overtime]
+    .filter(r => r.status === 'pending' && r.createdAt)
+    .forEach(r => {
+      try {
+        // Parse French date "dd/mm/yyyy HH:mm" 
+        const parts = r.createdAt.split(' ');
+        if(parts.length >= 2){
+          const [d,mo,y] = parts[0].split('/');
+          const [hh,mm] = parts[1].split(':');
+          const ts = new Date(y,mo-1,d,hh,mm).getTime();
+          if(ts < cutoff){
+            const who = r.requesterName || r.targetName || userName(r.userId||'');
+            const type = r.requesterShiftId !== undefined ? 'échange' : r.type !== undefined ? 'congé' : 'heures supp';
+            alerts.push({level:'info', icon:'🕐', msg: 'Demande de <strong>' + (who||'agent') + '</strong> (' + type + ') en attente depuis + de 48h'});
+          }
+        }
+      } catch(e){}
+    });
+
+  return alerts;
+}
 function viewDashboard(){
   const today=iso(new Date());
   const todayShifts=state.shifts.filter(s=>s.date===today);
@@ -1444,6 +1491,22 @@ function viewDashboard(){
   }).filter(x=>x.mins>0);
 
   return `
+    \${(()=>{
+      const alerts=computeAlerts();
+      if(!alerts.length) return '';
+      const colors={'danger':'rgba(255,79,109,.12)','warn':'rgba(255,159,67,.12)','info':'rgba(79,140,255,.10)'};
+      const borders={'danger':'rgba(255,79,109,.35)','warn':'rgba(255,159,67,.35)','info':'rgba(79,140,255,.30)'};
+      return '<div class="carditem" style="padding:14px 16px">'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+        +'<span style="font-size:16px">🚨</span>'
+        +'<span style="font-weight:850;font-size:14px">Alertes ('+alerts.length+')</span>'
+        +'</div>'
+        +alerts.map(a=>'<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:10px;background:'+colors[a.level]+';border:1px solid '+borders[a.level]+';margin-bottom:7px">'
+          +'<span style="font-size:15px;flex-shrink:0">'+a.icon+'</span>'
+          +'<span style="font-size:13px;line-height:1.4">'+a.msg+'</span>'
+          +'</div>').join('')
+        +'</div>';
+    })()}
     <div class="kpi-grid">
       <div class="kpi-card">
         <div class="kpi-icon" style="background:rgba(79,140,255,.18);color:#4f8cff">${icons.calendar}</div>
