@@ -1308,6 +1308,26 @@ const tabsDirection=[
 ];
 
 // ── Rendu ─────────────────────────────────────────────────────────────────────
+// ── Notifications push ──────────────────────────────────────────────────────
+function requestNotifPermission(){
+  if('Notification' in window && Notification.permission === 'default'){
+    Notification.requestPermission();
+  }
+}
+
+function pushNotif(title, body, icon){
+  if(!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    new Notification(title, {
+      body: body,
+      icon: icon || 'https://floriandinel21-byte.github.io/Application-Mon-Ehpad/icon.png',
+      badge: 'https://floriandinel21-byte.github.io/Application-Mon-Ehpad/icon.png',
+      tag: 'ehpad-' + Date.now()
+    });
+  } catch(e) {}
+}
+
+
 function render(){
   root.innerHTML="";
   if(!state.session?.userId){ root.appendChild(tplLogin.content.cloneNode(true)); setupLogin(); return; }
@@ -2002,7 +2022,8 @@ function attachHandlers(tabId){
       if(!myId||!colId||!colShiftId){ document.getElementById("swapHint").innerHTML=`<span class="badge no">Complète les 3 champs</span>`; return; }
       const col=state.users.find(u=>u.id===colId);
       state.swapRequests.push({id:"sw_"+Math.random().toString(16).slice(2),requesterId:state.session.userId,targetId:colId,requesterName:me().name,targetName:col?.name||colId,requesterShiftId:myId,targetShiftId:colShiftId,status:"pending",createdAt:new Date().toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"})});
-      saveState(); document.getElementById("swapHint").innerHTML=`<span class="badge ok">Envoyé</span><span class="badge warn">En attente de validation</span>`;
+      saveState();
+      pushNotif('📋 Échange demandé', me().name + ' souhaite échanger un horaire avec ' + (col?.name||colId) + '.', null); document.getElementById("swapHint").innerHTML=`<span class="badge ok">Envoyé</span><span class="badge warn">En attente de validation</span>`;
       toast("Demande envoyée ✅"); renderTab("echanges");
     });
   }
@@ -2047,7 +2068,8 @@ function attachHandlers(tabId){
     });
     document.getElementById("btnSendLeave")?.addEventListener("click",()=>{
       state.leaveRequests.push({id:"lv_"+Math.random().toString(16).slice(2),userId:me().id,type:document.getElementById("leaveType").value,from:document.getElementById("leaveFrom").value,to:document.getElementById("leaveTo").value,note:document.getElementById("leaveNote").value.trim(),status:"pending",createdAt:nowTime()});
-      saveState(); toast("Demande envoyée ✅"); renderTab("profil");
+      saveState();
+      pushNotif('🏖️ Demande de congés', me().name + ' demande un congé : ' + document.getElementById('leaveType').value + '.', null); toast("Demande envoyée ✅"); renderTab("profil");
     });
     document.getElementById("btnSendOT")?.addEventListener("click",()=>{
       const mins = parseInt(document.getElementById("otMinutes")?.value||"0",10);
@@ -2059,6 +2081,7 @@ function attachHandlers(tabId){
         userId:me().id, minutes:mins, date, note, status:"pending", createdAt:nowTime()
       });
       saveState();
+      pushNotif('⏱️ Heures supplémentaires', me().name + ' déclare ' + mins + ' min de travail supplémentaire.', null);
       toast("Heures supp déclarées ✅");
       renderTab("profil");
       // Scroll to OT section after re-render
@@ -2172,19 +2195,28 @@ function setSwapStatus(id,status){
   const label=status==="approved"?"validé":"refusé";
   pushNotif(r.requesterId,`Échange avec ${r.targetName||""} ${label} par la direction ${emoji}`,"swap");
   pushNotif(r.targetId,`Échange avec ${r.requesterName||""} ${label} par la direction ${emoji}`,"swap");
-  saveState(); toast(status==="approved"?"Échange validé ✅ — planning mis à jour":"Échange refusé ❌"); renderTab(currentTab);
+  saveState();
+  if(status==="approved") pushNotif('✅ Échange validé', 'L\'échange entre ' + (r.requesterName||userName(r.requesterId)) + ' et ' + (r.targetName||userName(r.targetId)) + ' a été approuvé.', null);
+  else pushNotif('❌ Échange refusé', 'La demande d\'échange de ' + (r.requesterName||userName(r.requesterId)) + ' a été refusée.', null);
+  toast(status==="approved"?"Échange validé ✅ — planning mis à jour":"Échange refusé ❌"); renderTab(currentTab);
 }
 function setLeaveStatus(id,status){
   const r=state.leaveRequests.find(x=>x.id===id); if(!r) return; r.status=status;
   const emoji=status==="approved"?"✅":"❌";
   pushNotif(r.userId,`Votre demande de ${r.type} (${fmtDate(r.from)}→${fmtDate(r.to)}) a été ${status==="approved"?"approuvée":"refusée"} ${emoji}`,"leave");
-  saveState(); toast(status==="approved"?"Congé approuvé ✅":"Congé refusé ❌"); renderTab(currentTab);
+  saveState();
+  if(status==="approved") pushNotif('✅ Congé approuvé', 'La demande de congé de ' + userName(r.userId) + ' a été approuvée.', null);
+  else pushNotif('❌ Congé refusé', 'La demande de congé de ' + userName(r.userId) + ' a été refusée.', null);
+  toast(status==="approved"?"Congé approuvé ✅":"Congé refusé ❌"); renderTab(currentTab);
 }
 function setOTStatus(id,status){
   const r=state.overtime.find(x=>x.id===id); if(!r) return; r.status=status;
   const emoji=status==="approved"?"✅":"❌";
   pushNotif(r.userId,`Vos ${r.minutes} min d'heures supp du ${fmtDate(r.date)} ont été ${status==="approved"?"validées":"refusées"} ${emoji}`,"ot");
-  saveState(); toast(status==="approved"?"Heures supp validées ✅":"Heures supp refusées ❌"); renderTab(currentTab);
+  saveState();
+  if(status==="approved") pushNotif('✅ Heures supp validées', userName(r.userId) + ' : ' + r.minutes + ' min de travail supplémentaire validées.', null);
+  else pushNotif('❌ Heures supp refusées', 'Les heures supp de ' + userName(r.userId) + ' ont été refusées.', null);
+  toast(status==="approved"?"Heures supp validées ✅":"Heures supp refusées ❌"); renderTab(currentTab);
 }
 
 function openProfileModal(uid){
@@ -2463,6 +2495,7 @@ function exportPlanningPDF(){
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
+requestNotifPermission();
 render();
 saveState();
 
