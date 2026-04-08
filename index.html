@@ -1763,7 +1763,7 @@ function viewProfileAgent(){
       <div class="muted" id="profileSaved">${p.updatedAt?"Dernière mise à jour : "+p.updatedAt:""}</div>
     </div>
     <div class="carditem">
-      <h3>Absences / congés</h3>\n      ${leaveRemainingBar(u.id)}\n      <div class="muted" style="margin-bottom:12px">La direction sera notifiée.</div><div class="hr"></div>
+      <h3>Absences / congés</h3>` + leaveRemainingBar(u.id) + `<div class="muted" style="margin-bottom:12px">La direction sera notifiée.</div><div class="hr"></div>
       <div class="field"><label>Type</label><select id="leaveType"><option>Congés payés</option><option>Congé sans solde</option><option>Arrêt maladie</option><option>Autre</option></select></div>
       <div class="grid2" style="margin-top:10px">
         <div class="field"><label>Du</label><input type="date" id="leaveFrom" value="${iso(new Date())}"/></div>
