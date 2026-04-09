@@ -1,161 +1,705 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>EHPAD Staff — Accueil</title>
-<style>
-:root{
-  --bg:#07101f;
-  --primary:#4f8cff;
-  --primary2:#2f6df0;
-  --success:#32d583;
-  --text:#eef3ff;
-  --muted:#7a90b5;
-  --line:rgba(255,255,255,.08);
-  --card:#0f1a30;
-  --shadow:0 20px 60px rgba(0,0,0,.5);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{min-height:100%;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
-body{
-  background:
-    radial-gradient(900px 600px at 15% -10%, rgba(79,140,255,.28), transparent 60%),
-    radial-gradient(700px 500px at 100% 80%, rgba(50,213,131,.2), transparent 55%),
-    var(--bg);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;
-}
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>EHPAD Staff — Gestion du personnel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-.logo{
-  width:64px;height:64px;border-radius:18px;
-  background:linear-gradient(135deg,var(--primary),var(--primary2));
-  display:grid;place-items:center;
-  font-weight:900;font-size:28px;
-  box-shadow:0 12px 40px rgba(79,140,255,.45);
-  margin:0 auto 20px;
-}
-.title{font-size:32px;font-weight:900;text-align:center;margin-bottom:8px}
-.sub{color:var(--muted);text-align:center;font-size:15px;margin-bottom:48px;max-width:400px}
+    :root {
+      --bg: #060d1a;
+      --panel: #0c1528;
+      --accent: #4f8cff;
+      --accent2: #a855f7;
+      --success: #32d583;
+      --danger: #ff4f6d;
+      --warn: #ff9f43;
+      --text: #eef3ff;
+      --muted: #6b80a8;
+      --line: rgba(255,255,255,.07);
+    }
 
-.cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%;max-width:600px;margin-bottom:40px}
-@media(max-width:520px){.cards{grid-template-columns:1fr}}
+    html { scroll-behavior: smooth; }
 
-.device-card{
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:20px;
-  padding:28px 24px;
-  text-align:center;
-  text-decoration:none;
-  color:var(--text);
-  transition:all .2s;
-  display:flex;flex-direction:column;align-items:center;gap:12px;
-  position:relative;overflow:hidden;
-}
-.device-card::before{
-  content:"";position:absolute;inset:0;
-  background:linear-gradient(135deg,rgba(79,140,255,.08),transparent);
-  opacity:0;transition:opacity .2s;
-}
-.device-card:hover{transform:translateY(-4px);box-shadow:var(--shadow);border-color:rgba(79,140,255,.35);}
-.device-card:hover::before{opacity:1}
-.device-card.mobile::before{background:linear-gradient(135deg,rgba(50,213,131,.08),transparent)}
-.device-card.mobile:hover{border-color:rgba(50,213,131,.35);}
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
 
-.device-icon{font-size:48px;line-height:1}
-.device-title{font-size:18px;font-weight:900}
-.device-desc{font-size:13px;color:var(--muted);line-height:1.5}
-.device-btn{
-  margin-top:8px;padding:10px 22px;border-radius:10px;border:none;
-  font-weight:800;font-size:14px;cursor:pointer;
-  transition:all .15s;
-}
-.device-card:not(.mobile) .device-btn{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;}
-.device-card.mobile .device-btn{background:linear-gradient(135deg,var(--success),#1fb06a);color:#fff;}
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 10%, rgba(79,140,255,.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(168,85,247,.10) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 60% 30%, rgba(50,213,131,.06) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
 
-.features{
-  display:flex;flex-wrap:wrap;justify-content:center;gap:10px;
-  max-width:600px;margin-bottom:32px;
-}
-.feature-pill{
-  padding:6px 14px;border-radius:999px;
-  border:1px solid var(--line);
-  font-size:12px;color:var(--muted);
-  background:rgba(255,255,255,.03);
-}
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 40px;
+      background: rgba(6,13,26,.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--line);
+    }
 
-.footer{font-size:12px;color:var(--muted);text-align:center}
-.footer a{color:var(--muted);text-decoration:none}
+    .nav-logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 17px;
+      letter-spacing: -.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-/* Auto-redirect hint */
-.auto-hint{
-  font-size:12px;color:var(--muted);
-  margin-top:10px;display:flex;align-items:center;gap:6px;justify-content:center;
-}
-.dot-live{width:7px;height:7px;border-radius:999px;background:var(--success);animation:pulse 1.5s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-</style>
+    .pulse-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%,100%{opacity:1;transform:scale(1)}
+      50%{opacity:.5;transform:scale(.75)}
+    }
+
+    .nav-cta {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform .15s, box-shadow .15s;
+      display: inline-block;
+    }
+    .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(79,140,255,.35); }
+
+    .hero {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(79,140,255,.1);
+      border: 1px solid rgba(79,140,255,.25);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 13px;
+      color: #a8c4ff;
+      margin-bottom: 32px;
+      animation: fadeUp .6s ease both;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    .hero-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(38px, 7vw, 76px);
+      line-height: 1.05;
+      letter-spacing: -2px;
+      margin-bottom: 24px;
+      animation: fadeUp .6s .1s ease both;
+    }
+
+    .hero-title span {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: clamp(15px, 2.5vw, 19px);
+      color: var(--muted);
+      max-width: 540px;
+      line-height: 1.65;
+      margin-bottom: 48px;
+      font-weight: 300;
+      animation: fadeUp .6s .2s ease both;
+    }
+
+    .hero-btns {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+      animation: fadeUp .6s .3s ease both;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 13px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(79,140,255,.4); }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      border: 1px solid var(--line);
+      padding: 15px 26px;
+      border-radius: 13px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      font-weight: 400;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,.09); }
+
+    .hero-mockup {
+      position: relative;
+      margin-top: 72px;
+      width: 100%;
+      max-width: 860px;
+      animation: fadeUp .6s .4s ease both;
+    }
+
+    .mockup-frame {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.04), 0 40px 80px rgba(0,0,0,.6), 0 0 100px rgba(79,140,255,.07);
+    }
+
+    .mockup-bar {
+      background: rgba(255,255,255,.04);
+      border-bottom: 1px solid var(--line);
+      padding: 13px 18px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .mdot { width: 10px; height: 10px; border-radius: 50%; }
+
+    .mockup-inner {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      min-height: 340px;
+    }
+
+    .mockup-sidebar {
+      background: rgba(255,255,255,.02);
+      border-right: 1px solid var(--line);
+      padding: 16px 0;
+    }
+
+    .mtab {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      font-size: 13px;
+      color: var(--muted);
+      border-right: 3px solid transparent;
+    }
+
+    .mtab.active { color: var(--text); background: rgba(79,140,255,.09); border-right-color: var(--accent); }
+    .mtab svg { width: 15px; height: 15px; opacity: .6; flex-shrink: 0; }
+    .mtab.active svg { opacity: 1; }
+
+    .mockup-content { padding: 18px; }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .kpi-mini {
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .kpi-mini .val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 22px; line-height: 1; margin-bottom: 4px; }
+    .kpi-mini .lbl { font-size: 10px; color: var(--muted); }
+
+    .srow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 11px;
+      background: rgba(255,255,255,.03);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      border: 1px solid var(--line);
+    }
+
+    .srow-name { font-weight: 500; }
+    .srow-time { color: var(--muted); }
+    .sbadge { font-size: 10px; padding: 3px 8px; border-radius: 999px; font-weight: 600; }
+    .sbadge.m { background: rgba(79,140,255,.18); color: #a8c4ff; }
+    .sbadge.s { background: rgba(255,159,67,.18); color: #ffd4a8; }
+    .sbadge.n { background: rgba(168,85,247,.18); color: #d4a8ff; }
+
+    .section {
+      position: relative;
+      z-index: 1;
+      padding: 80px 24px;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: clamp(26px, 4vw, 42px);
+      letter-spacing: -1px;
+      margin-bottom: 14px;
+    }
+
+    .section-sub {
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: 300;
+      max-width: 500px;
+      line-height: 1.65;
+      margin-bottom: 52px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      gap: 18px;
+    }
+
+    .fcard {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 26px;
+      transition: border-color .2s, transform .2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .fcard::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--fc, var(--accent));
+      opacity: 0;
+      transition: opacity .2s;
+    }
+
+    .fcard:hover { border-color: rgba(255,255,255,.12); transform: translateY(-3px); }
+    .fcard:hover::before { opacity: 1; }
+
+    .fcard-icon {
+      width: 42px; height: 42px;
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 16px;
+      font-size: 18px;
+    }
+
+    .fcard-title { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 16px; margin-bottom: 8px; }
+    .fcard-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    .roles-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+    }
+
+    @media (max-width: 620px) { .roles-grid { grid-template-columns: 1fr; } }
+
+    .rcard {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 30px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .rcard.dir {
+      background: linear-gradient(135deg, rgba(79,140,255,.07), var(--panel) 60%);
+      border-color: rgba(79,140,255,.18);
+    }
+
+    .rcard.agt {
+      background: linear-gradient(135deg, rgba(50,213,131,.05), var(--panel) 60%);
+      border-color: rgba(50,213,131,.13);
+    }
+
+    .rlabel { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+    .rcard.dir .rlabel { color: var(--accent); }
+    .rcard.agt .rlabel { color: var(--success); }
+
+    .rtitle { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 21px; margin-bottom: 18px; }
+
+    .rlist { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+
+    .rlist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .rlist li::before { content: '✓'; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+    .rcard.dir .rlist li::before { color: var(--accent); }
+    .rcard.agt .rlist li::before { color: var(--success); }
+
+    .cta-section {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 60px 24px 100px;
+    }
+
+    .cta-box {
+      max-width: 620px;
+      margin: 0 auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      padding: 56px 36px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-box::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(79,140,255,.07), transparent);
+    }
+
+    .cta-box h2 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(24px, 4vw, 36px);
+      letter-spacing: -1px;
+      margin-bottom: 14px;
+      position: relative;
+    }
+
+    .cta-box p {
+      color: var(--muted);
+      font-size: 15px;
+      margin-bottom: 34px;
+      line-height: 1.65;
+      position: relative;
+    }
+
+    footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 22px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .divider { height: 1px; background: var(--line); max-width: 1080px; margin: 0 auto; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(22px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .reveal { opacity: 0; transform: translateY(28px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 760px) {
+      nav { padding: 14px 18px; }
+      .mockup-sidebar { display: none; }
+      .mockup-inner { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
 
-<div class="logo">E</div>
-<div class="title">EHPAD Staff</div>
-<div class="sub">Plateforme de gestion du personnel — Choisissez votre interface ou laissez la redirection automatique agir.</div>
+  <nav>
+    <div class="nav-logo">
+      <div class="pulse-dot"></div>
+      EHPAD Staff
+    </div>
+    <a href="index.html" class="nav-cta">Voir la démo →</a>
+  </nav>
 
-<div class="cards">
-  <a class="device-card" href="./app/" id="cardDesktop">
-    <div class="device-icon">🖥️</div>
-    <div class="device-title">Version Bureau</div>
-    <div class="device-desc">Interface complète avec sidebar, multi-colonnes et calendrier étendu.</div>
-    <div class="device-btn">Ouvrir →</div>
-  </a>
-  <a class="device-card mobile" href="./index.html" id="cardMobile">
-    <div class="device-icon">📱</div>
-    <div class="device-title">Version Mobile</div>
-    <div class="device-desc">Interface optimisée pour smartphone et tablette avec navigation tactile.</div>
-    <div class="device-btn">Ouvrir →</div>
-  </a>
-</div>
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-badge">Démo web · 100% local · Sans serveur</div>
 
-<div class="features">
-  <span class="feature-pill">✓ 100% local</span>
-  <span class="feature-pill">✓ Sans serveur</span>
-  <span class="feature-pill">✓ Planning</span>
-  <span class="feature-pill">✓ Messagerie</span>
-  <span class="feature-pill">✓ Échanges d'horaires</span>
-  <span class="feature-pill">✓ Validations</span>
-  <span class="feature-pill">✓ Profil santé</span>
-  <span class="feature-pill">✓ Export PDF</span>
-</div>
+    <h1 class="hero-title">
+      Gestion du personnel<br>
+      <span>simplifiée</span>
+    </h1>
 
-<div class="auto-hint">
-  <div class="dot-live"></div>
-  Redirection automatique dans <span id="countdown">3</span>s…
-</div>
+    <p class="hero-sub">
+      Planning, échanges d'horaires, congés, messagerie — tout ce dont votre équipe EHPAD a besoin, depuis n'importe quel appareil.
+    </p>
 
-<div class="footer" style="margin-top:20px">EHPAD Staff Demo · Données locales uniquement</div>
+    <div class="hero-btns">
+      <a href="index.html" class="btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="16" height="16"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        Lancer la démo
+      </a>
+      <a href="#fonctionnalites" class="btn-ghost">Fonctionnalités ↓</a>
+    </div>
 
-<script>
-// Auto-detect and redirect
-const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent) || window.innerWidth < 768;
+    <div class="hero-mockup">
+      <div class="mockup-frame">
+        <div class="mockup-bar">
+          <div class="mdot" style="background:#ff5f57"></div>
+          <div class="mdot" style="background:#febc2e"></div>
+          <div class="mdot" style="background:#28c840"></div>
+        </div>
+        <div class="mockup-inner">
+          <div class="mockup-sidebar">
+            <div class="mtab active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg>
+              Accueil
+            </div>
+            <div class="mtab">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M20 12a8 8 0 11-16 0 8 8 0 0116 0z"/></svg>
+              Valider
+              <span style="background:#ff4f6d;color:#fff;font-size:9px;border-radius:999px;padding:1px 5px;margin-left:auto;font-weight:700">3</span>
+            </div>
+            <div class="mtab">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4z"/></svg>
+              Messages
+            </div>
+            <div class="mtab">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 22l7.8-8.6 1-1a5.5 5.5 0 000-7.8z"/></svg>
+              Profils
+            </div>
+            <div class="mtab">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 10-16 0"/><path d="M12 13a4 4 0 100-8 4 4 0 000 8z"/></svg>
+              Compte
+            </div>
+          </div>
+          <div class="mockup-content">
+            <div class="kpi-row">
+              <div class="kpi-mini">
+                <div class="val" style="color:#4f8cff">14</div>
+                <div class="lbl">Agents aujourd'hui</div>
+              </div>
+              <div class="kpi-mini">
+                <div class="val" style="color:#ff4f6d">3</div>
+                <div class="lbl">En attente</div>
+              </div>
+              <div class="kpi-mini">
+                <div class="val" style="color:#a855f7">1h45</div>
+                <div class="lbl">Heures supp</div>
+              </div>
+            </div>
+            <div class="srow">
+              <span class="srow-name">Marie Leroy</span>
+              <span class="srow-time">07:00 – 14:30</span>
+              <span class="sbadge m">Matin</span>
+            </div>
+            <div class="srow">
+              <span class="srow-name">Thomas Girard</span>
+              <span class="srow-time">14:00 – 21:30</span>
+              <span class="sbadge s">Soir</span>
+            </div>
+            <div class="srow">
+              <span class="srow-name">Nadia Khelil</span>
+              <span class="srow-time">21:30 – 07:00</span>
+              <span class="sbadge n">Nuit</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-// Highlight the right card
-document.getElementById(isMobile ? 'cardMobile' : 'cardDesktop').style.boxShadow = '0 0 0 2px rgba(79,140,255,.5), 0 20px 60px rgba(0,0,0,.5)';
+  <div class="divider"></div>
 
-// Countdown and redirect
-let t = 3;
-const el = document.getElementById('countdown');
-const timer = setInterval(() => {
-  t--;
-  el.textContent = t;
-  if(t <= 0){
-    clearInterval(timer);
-    window.location.href = isMobile ? './index.html' : './app/';
-  }
-}, 1000);
+  <!-- Features -->
+  <section class="section" id="fonctionnalites">
+    <div class="reveal">
+      <span class="section-label">Fonctionnalités</span>
+      <h2 class="section-title">Tout ce dont votre<br>équipe a besoin</h2>
+      <p class="section-sub">Une application complète pensée pour le quotidien des EHPAD — simple, rapide, sans installation.</p>
+    </div>
 
-// Cancel redirect on click
-document.querySelectorAll('.device-card').forEach(c => c.addEventListener('click', () => clearInterval(timer)));
-</script>
+    <div class="features-grid reveal">
+      <div class="fcard" style="--fc:#4f8cff">
+        <div class="fcard-icon" style="background:rgba(79,140,255,.12);color:#4f8cff">📅</div>
+        <div class="fcard-title">Planning interactif</div>
+        <div class="fcard-desc">Calendrier mensuel par unité. Chaque agent voit son planning personnel et celui de son équipe en un coup d'œil.</div>
+      </div>
+      <div class="fcard" style="--fc:#ff9f43">
+        <div class="fcard-icon" style="background:rgba(255,159,67,.12);color:#ff9f43">🔄</div>
+        <div class="fcard-title">Échanges d'horaires</div>
+        <div class="fcard-desc">Demande d'échange entre collègues avec sélection des deux horaires. La direction valide en un clic.</div>
+      </div>
+      <div class="fcard" style="--fc:#32d583">
+        <div class="fcard-icon" style="background:rgba(50,213,131,.12);color:#32d583">💬</div>
+        <div class="fcard-title">Messagerie interne</div>
+        <div class="fcard-desc">Communication directe agent ↔ collègues et agent ↔ direction avec proposition d'échange intégrée.</div>
+      </div>
+      <div class="fcard" style="--fc:#a855f7">
+        <div class="fcard-icon" style="background:rgba(168,85,247,.12);color:#a855f7">🏖️</div>
+        <div class="fcard-title">Congés & absences</div>
+        <div class="fcard-desc">Demande de congés avec compteur de jours restants (25j/an). Suivi arrêts maladie et congés sans solde.</div>
+      </div>
+      <div class="fcard" style="--fc:#ff4f6d">
+        <div class="fcard-icon" style="background:rgba(255,79,109,.12);color:#ff4f6d">⏱️</div>
+        <div class="fcard-title">Heures supplémentaires</div>
+        <div class="fcard-desc">Déclaration par l'agent, validation direction, résumé mensuel avec barre de progression par agent.</div>
+      </div>
+      <div class="fcard" style="--fc:#32d583">
+        <div class="fcard-icon" style="background:rgba(50,213,131,.12);color:#32d583">❤️</div>
+        <div class="fcard-title">Profil & santé</div>
+        <div class="fcard-desc">Fiche santé par agent — allergies, traitements, groupe sanguin, contact d'urgence. Visible uniquement par la direction.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Roles -->
+  <section class="section">
+    <div class="reveal">
+      <span class="section-label">Deux rôles</span>
+      <h2 class="section-title">Une app, deux expériences</h2>
+      <p class="section-sub">Chaque profil dispose d'une interface adaptée à ses besoins.</p>
+    </div>
+
+    <div class="roles-grid reveal">
+      <div class="rcard dir">
+        <div class="rlabel">Direction</div>
+        <div class="rtitle">Vue d'ensemble<br>et décision</div>
+        <ul class="rlist">
+          <li>Tableau de bord KPIs + alertes automatiques</li>
+          <li>Planning du jour — toutes les unités</li>
+          <li>Validation échanges, congés, heures supp</li>
+          <li>Messagerie avec tous les agents</li>
+          <li>Consultation des profils & fiches santé</li>
+          <li>Ajout d'horaires directement</li>
+          <li>Export PDF du planning mensuel</li>
+        </ul>
+      </div>
+      <div class="rcard agt">
+        <div class="rlabel">Agent</div>
+        <div class="rtitle">Mon planning,<br>mes demandes</div>
+        <ul class="rlist">
+          <li>Planning personnel et planning d'unité</li>
+          <li>Déclaration de disponibilité / indisponibilité</li>
+          <li>Demande d'échange avec un collègue</li>
+          <li>Messagerie avec collègues et direction</li>
+          <li>Demande de congés avec solde restant</li>
+          <li>Déclaration des heures supplémentaires</li>
+          <li>Mise à jour du profil santé</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <div class="cta-box reveal">
+      <h2>Prêt à voir la démo ?</h2>
+      <p>Connectez-vous en tant qu'agent ou direction et explorez toutes les fonctionnalités. Les données sont 100% locales — rien n'est envoyé sur un serveur.</p>
+      <a href="index.html" class="btn-primary" style="font-size:16px;padding:16px 36px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="16" height="16"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        Lancer la démo
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    EHPAD Staff — Démo web locale &nbsp;·&nbsp; Données stockées dans le navigateur &nbsp;·&nbsp; Aucun serveur
+  </footer>
+
+  <script>
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if(!e.isIntersecting) return;
+        e.target.classList.add('visible');
+        e.target.querySelectorAll('.fcard, .rcard').forEach((el, i) => {
+          el.style.transitionDelay = (i * 0.07) + 's';
+          el.classList.add('reveal', 'visible');
+        });
+      });
+    }, { threshold: 0.08 });
+
+    document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+  </script>
 </body>
 </html>
