@@ -329,6 +329,137 @@ textarea{min-height:92px;resize:vertical}
   /* Week view scrollable */
   .week-wrap { overflow-x:auto; }
 }
+
+    /* ── Desktop layout (≥ 1200px) ─────────────────────────────────────────── */
+    @media (min-width: 1200px) {
+
+      /* App container centré, plus large */
+      .app {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      /* Sidebar verticale à gauche */
+      .tabbar {
+        position: fixed;
+        left: 0; top: 0; bottom: 0;
+        width: 200px;
+        flex-direction: column;
+        justify-content: flex-start;
+        padding: 24px 0 24px;
+        border-right: 1px solid var(--line);
+        border-top: none;
+        height: 100vh;
+        overflow-y: auto;
+        background: var(--panel);
+        z-index: 100;
+      }
+      .tabbar .tab {
+        flex-direction: row;
+        gap: 12px;
+        padding: 14px 20px;
+        width: 100%;
+        justify-content: flex-start;
+        border-radius: 0;
+        font-size: 14px;
+        border-bottom: none;
+      }
+      .tabbar .tab svg {
+        width: 20px; height: 20px;
+        flex-shrink: 0;
+      }
+      .tabbar .tab.active {
+        background: rgba(79,140,255,.12);
+        border-right: 3px solid var(--primary);
+      }
+
+      /* Main content décalé à droite de la sidebar */
+      .shell {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        grid-template-rows: auto 1fr;
+        height: 100vh;
+      }
+      .header {
+        grid-column: 2;
+        grid-row: 1;
+      }
+      .main {
+        grid-column: 2;
+        grid-row: 2;
+        padding: 24px 32px;
+        overflow-y: auto;
+      }
+
+      /* Dashboard direction : 2 colonnes */
+      .main[data-tab="dashboard_dir"] > *,
+      .main > .dash-grid {
+        display: contents;
+      }
+      .main {
+        display: block;
+      }
+
+      /* KPI grid : 3 colonnes déjà, on les agrandit */
+      .kpi-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+      .kpi-card {
+        padding: 20px;
+      }
+      .kpi-val {
+        font-size: 32px;
+      }
+
+      /* Cards en 2 colonnes sur dashboard et validations */
+      .desktop-2col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+      .desktop-3col {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+
+      /* Chat en 2 panneaux */
+      .desktop-chat {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 20px;
+        align-items: start;
+        height: calc(100vh - 120px);
+      }
+      .desktop-chat .carditem {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .desktop-chat .chat {
+        flex: 1;
+        overflow-y: auto;
+        max-height: none;
+      }
+      .chatbar {
+        position: static;
+        transform: none !important;
+        width: 100%;
+        border-radius: 12px;
+        margin-top: 10px;
+      }
+    }
+
+    @media (min-width: 1200px) and (max-width: 1599px) {
+      .tabbar { width: 180px; }
+      .shell { grid-template-columns: 180px 1fr; }
+      .header { grid-column: 2; }
+      .main { grid-column: 2; padding: 20px 24px; }
+    }
 </style>
 </head>
 <body>
@@ -1474,6 +1605,26 @@ function computeAlerts(){
 
   return alerts;
 }
+
+function renderAlertsCard(){
+  const alerts = computeAlerts();
+  if(!alerts.length) return '';
+  const colors = {danger:'rgba(255,79,109,.12)', warn:'rgba(255,159,67,.12)', info:'rgba(79,140,255,.10)'};
+  const borders = {danger:'rgba(255,79,109,.35)', warn:'rgba(255,159,67,.35)', info:'rgba(79,140,255,.30)'};
+  return '<div class="carditem" style="padding:14px 16px">'
+    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    + '<span style="font-size:16px">🚨</span>'
+    + '<span style="font-weight:850;font-size:14px">Alertes (' + alerts.length + ')</span>'
+    + '</div>'
+    + alerts.map(a =>
+        '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:10px;'
+        + 'background:' + colors[a.level] + ';border:1px solid ' + borders[a.level] + ';margin-bottom:7px">'
+        + '<span style="font-size:15px;flex-shrink:0">' + a.icon + '</span>'
+        + '<span style="font-size:13px;line-height:1.4">' + a.msg + '</span>'
+        + '</div>'
+      ).join('')
+    + '</div>';
+}
 function viewDashboard(){
   const today=iso(new Date());
   const todayShifts=state.shifts.filter(s=>s.date===today);
@@ -1495,22 +1646,7 @@ function viewDashboard(){
   }).filter(x=>x.mins>0);
 
   return `
-    \${(()=>{
-      const alerts=computeAlerts();
-      if(!alerts.length) return '';
-      const colors={'danger':'rgba(255,79,109,.12)','warn':'rgba(255,159,67,.12)','info':'rgba(79,140,255,.10)'};
-      const borders={'danger':'rgba(255,79,109,.35)','warn':'rgba(255,159,67,.35)','info':'rgba(79,140,255,.30)'};
-      return '<div class="carditem" style="padding:14px 16px">'
-        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
-        +'<span style="font-size:16px">🚨</span>'
-        +'<span style="font-weight:850;font-size:14px">Alertes ('+alerts.length+')</span>'
-        +'</div>'
-        +alerts.map(a=>'<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:10px;background:'+colors[a.level]+';border:1px solid '+borders[a.level]+';margin-bottom:7px">'
-          +'<span style="font-size:15px;flex-shrink:0">'+a.icon+'</span>'
-          +'<span style="font-size:13px;line-height:1.4">'+a.msg+'</span>'
-          +'</div>').join('')
-        +'</div>';
-    })()}
+    ${renderAlertsCard()}
     <div class="kpi-grid">
       <div class="kpi-card">
         <div class="kpi-icon" style="background:rgba(79,140,255,.18);color:#4f8cff">${icons.calendar}</div>
@@ -2561,136 +2697,6 @@ function exportPlanningPDF(){
       table{border:1px solid #1e2d4a} td,th{border:1px solid #1e2d4a}
       @media print{body{background:#fff;color:#000} td,th{border:1px solid #ccc} h2{color:#000}}
     
-    /* ── Desktop layout (≥ 1200px) ─────────────────────────────────────────── */
-    @media (min-width: 1200px) {
-
-      /* App container centré, plus large */
-      .app {
-        max-width: 1400px;
-        margin: 0 auto;
-      }
-
-      /* Sidebar verticale à gauche */
-      .tabbar {
-        position: fixed;
-        left: 0; top: 0; bottom: 0;
-        width: 200px;
-        flex-direction: column;
-        justify-content: flex-start;
-        padding: 24px 0 24px;
-        border-right: 1px solid var(--line);
-        border-top: none;
-        height: 100vh;
-        overflow-y: auto;
-        background: var(--panel);
-        z-index: 100;
-      }
-      .tabbar .tab {
-        flex-direction: row;
-        gap: 12px;
-        padding: 14px 20px;
-        width: 100%;
-        justify-content: flex-start;
-        border-radius: 0;
-        font-size: 14px;
-        border-bottom: none;
-      }
-      .tabbar .tab svg {
-        width: 20px; height: 20px;
-        flex-shrink: 0;
-      }
-      .tabbar .tab.active {
-        background: rgba(79,140,255,.12);
-        border-right: 3px solid var(--primary);
-      }
-
-      /* Main content décalé à droite de la sidebar */
-      .shell {
-        display: grid;
-        grid-template-columns: 200px 1fr;
-        grid-template-rows: auto 1fr;
-        height: 100vh;
-      }
-      .header {
-        grid-column: 2;
-        grid-row: 1;
-      }
-      .main {
-        grid-column: 2;
-        grid-row: 2;
-        padding: 24px 32px;
-        overflow-y: auto;
-      }
-
-      /* Dashboard direction : 2 colonnes */
-      .main[data-tab="dashboard_dir"] > *,
-      .main > .dash-grid {
-        display: contents;
-      }
-      .main {
-        display: block;
-      }
-
-      /* KPI grid : 3 colonnes déjà, on les agrandit */
-      .kpi-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-        margin-bottom: 20px;
-      }
-      .kpi-card {
-        padding: 20px;
-      }
-      .kpi-val {
-        font-size: 32px;
-      }
-
-      /* Cards en 2 colonnes sur dashboard et validations */
-      .desktop-2col {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        align-items: start;
-      }
-      .desktop-3col {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 20px;
-        align-items: start;
-      }
-
-      /* Chat en 2 panneaux */
-      .desktop-chat {
-        display: grid;
-        grid-template-columns: 280px 1fr;
-        gap: 20px;
-        align-items: start;
-        height: calc(100vh - 120px);
-      }
-      .desktop-chat .carditem {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-      }
-      .desktop-chat .chat {
-        flex: 1;
-        overflow-y: auto;
-        max-height: none;
-      }
-      .chatbar {
-        position: static;
-        transform: none !important;
-        width: 100%;
-        border-radius: 12px;
-        margin-top: 10px;
-      }
-    }
-
-    @media (min-width: 1200px) and (max-width: 1599px) {
-      .tabbar { width: 180px; }
-      .shell { grid-template-columns: 180px 1fr; }
-      .header { grid-column: 2; }
-      .main { grid-column: 2; padding: 20px 24px; }
-    }
 </style>
   </head><body>
     <h1>Planning EHPAD — ${capitalize(monthLabel)}</h1>
@@ -2698,17 +2704,15 @@ function exportPlanningPDF(){
     ${tables}
     "<scr"+"ipt>window.print();</scr"+"ipt>"
   </body></html>`;
-
-  const win=window.open("","_blank");
-  if(win){ win.document.write(html); win.document.close(); }
-  else toast("Autorisez les pop-ups pour exporter");
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
+// ── Boot ────────────────────────────────────────────────────────────────────
 requestNotifPermission();
 render();
 saveState();
-
 </script>
 </body>
 </html>
