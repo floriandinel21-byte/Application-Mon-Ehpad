@@ -830,6 +830,25 @@ function hoursThisMonth(userId){
   },0);
   return shiftMins;
 }
+function hoursThisWeek(userId){
+  const now = new Date();
+  // Monday of current week
+  const day = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  const monday = new Date(now); monday.setDate(now.getDate() - day); monday.setHours(0,0,0,0);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  const isoMonday = monday.toISOString().slice(0,10);
+  const isoSunday = sunday.toISOString().slice(0,10);
+  return state.shifts
+    .filter(s => s.userId === userId && s.date >= isoMonday && s.date <= isoSunday)
+    .reduce((acc, s) => {
+      const [sh,sm] = s.start.split(':').map(Number);
+      let [eh,em] = s.end.split(':').map(Number);
+      let mins = (eh*60+em) - (sh*60+sm);
+      if(mins < 0) mins += 24*60;
+      return acc + mins;
+    }, 0);
+}
+
 function otThisMonth(userId){
   const now=new Date(), ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
   // pending + approved
@@ -1646,6 +1665,11 @@ function viewDashboard(){
     return {id:u.id,name:u.name,unit:u.unit,mins};
   }).filter(x=>x.mins>0);
 
+  // Heures semaine par agent
+  const weekByAgent=state.users.filter(u=>u.role==="agent").map(u=>({
+    id:u.id, name:u.name, unit:u.unit, mins:hoursThisWeek(u.id)
+  })).filter(x=>x.mins>0).sort((a,b)=>b.mins-a.mins);
+
   return `
     ${renderAlertsCard()}
     <div class="kpi-grid">
@@ -1745,6 +1769,28 @@ function viewDashboard(){
         </div>`;
       }).join("")}
     </div>`:""}
+    ${weekByAgent.length?`
+    <div class="carditem">
+      <h3>Heures cette semaine</h3>
+      <div class="muted" style="margin-bottom:12px">Par agent — semaine en cours</div>
+      ${weekByAgent.map(x=>{
+        const h=Math.floor(x.mins/60), m=x.mins%60;
+        const disp=h>0?h+'h'+(m?String(m).padStart(2,'0'):''):m+' min';
+        const pct=Math.min(100,Math.round(x.mins/(35*60)*100));
+        const color=x.mins>35*60?'#ff4f6d':x.mins>28*60?'#ff9f43':'#4f8cff';
+        return '<div style="margin-bottom:12px">'
+          +'<div class="row" style="justify-content:space-between;margin-bottom:5px">'
+          +'<div style="display:flex;align-items:center;gap:8px">'
+          +'<div style="width:28px;height:28px;border-radius:9px;background:'+avatarColor(x.id)+';display:grid;place-items:center;font-weight:900;font-size:11px;flex-shrink:0">'+avatarInitials(x.name)+'</div>'
+          +'<span style="font-weight:800;font-size:13px">'+x.name+'</span>'
+          +'</div>'
+          +'<span style="font-size:13px;font-weight:900;color:'+color+'">'+disp+'<span style="font-size:11px;color:var(--muted);font-weight:400"> / 35h</span></span>'
+          +'</div>'
+          +'<div style="height:6px;border-radius:999px;background:rgba(255,255,255,.08)">'
+          +'<div style="height:100%;border-radius:999px;width:'+pct+'%;background:'+color+'"></div>'
+          +'</div></div>';
+      }).join('')}
+    </div>`:""}
     </div><!-- end col2 -->
     </div><!-- end desktop-2col -->`;
 }
@@ -1798,7 +1844,16 @@ function viewPlanningAgent(){
       </div>
       <div class="hr"></div>
 
-      <!-- Compteur heures du mois -->
+      <!-- Compteur heures semaine + mois -->
+      <div class="hours-counter" style="margin-bottom:10px">
+        <div class="row" style="justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:12px;color:var(--muted)">Cette semaine</span>
+          <span style="font-size:13px;font-weight:800;color:${(()=>{const w=hoursThisWeek(u.id);return w>35*60?'#ff4f6d':w>28*60?'#ff9f43':'var(--text)'})()}">${fmtHours(hoursThisWeek(u.id))} <span class="muted" style="font-size:11px">/ 35h</span></span>
+        </div>
+        <div style="height:5px;border-radius:999px;background:rgba(255,255,255,.08);margin-bottom:12px">
+          <div style="height:100%;border-radius:999px;width:${Math.min(100,Math.round(hoursThisWeek(u.id)/(35*60)*100))}%;background:${hoursThisWeek(u.id)>35*60?'var(--danger)':hoursThisWeek(u.id)>28*60?'var(--warn)':'var(--primary)'};transition:width .4s"></div>
+        </div>
+      </div>
       <div class="hours-counter">
         <div class="row" style="justify-content:space-between;margin-bottom:6px">
           <span style="font-size:12px;color:var(--muted)">Heures — ${monthName}</span>
