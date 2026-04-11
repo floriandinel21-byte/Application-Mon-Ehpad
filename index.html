@@ -674,43 +674,55 @@ textarea{min-height:92px;resize:vertical}
   <div id="root"></div>
 
   <template id="tpl-login">
-    <div class="login-screen">
-      <div class="login-bg"></div>
-      <div class="login-box">
-        <div class="login-logo">
-          <div class="login-logo-icon">E</div>
+    <div class="screen">
+      <div class="topbar">
+        <div class="brand">
+          <div class="logo">E</div>
           <div>
-            <div class="login-logo-title">EHPAD Staff</div>
-            <div class="login-logo-sub">Gestion du personnel</div>
+            <div class="brand-title">EHPAD Staff</div>
+            <div class="brand-subtitle">Démo web locale</div>
           </div>
         </div>
-        <div class="login-role-row">
-          <button class="role-btn active" data-role="agent" id="roleBtnAgent">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="15" height="15"><path d="M20 21a8 8 0 10-16 0"/><path d="M12 13a4 4 0 100-8 4 4 0 000 8z"/></svg>
-            Agent
-          </button>
-          <button class="role-btn" data-role="direction" id="roleBtnDir">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="15" height="15"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-            Direction
-          </button>
+      </div>
+
+      <div class="content">
+        <div class="card hero">
+          <div class="hero-title">Connexion</div>
+          <div class="hero-sub">Choisis un profil pour tester (Agent / Direction).</div>
+
+          <div class="row gap">
+            <div class="field">
+              <label>Rôle</label>
+              <select id="loginRole">
+                <option value="agent">Agent</option>
+                <option value="direction">Direction</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Utilisateur</label>
+              <select id="loginUser"></select>
+            </div>
+          </div>
+
+          <button class="btn primary" id="btnLogin">Se connecter</button>
+
+          <div class="hint">
+            <span class="pill">100% local</span>
+            <span class="pill">Windows OK</span>
+            <span class="pill">Sans serveur</span>
+          </div>
         </div>
-        <select id="loginRole" style="display:none">
-          <option value="agent">Agent</option>
-          <option value="direction">Direction</option>
-        </select>
-        <select id="loginUser" style="display:none"></select>
-        <div class="login-avatars-wrap">
-          <div class="login-avatars-label">Choisir un profil</div>
-          <div id="loginAvatars" class="login-avatars-grid"></div>
-        </div>
-        <button class="login-btn" id="btnLogin">
-          Se connecter
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="15" height="15"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-        <div class="login-pills">
-          <span class="login-pill">🔒 100% local</span>
-          <span class="login-pill">📱 Mobile &amp; desktop</span>
-          <span class="login-pill">⚡ Sans serveur</span>
+
+        <div class="card">
+          <div class="section-title">Ce que tu peux montrer à la direction</div>
+          <ul class="bullets">
+            <li>Planning personnel + planning d'unité</li>
+            <li>Échanges d'horaires (avec sélection de deux horaires)</li>
+            <li>Messagerie interne + proposition d'échange</li>
+            <li>Absences / congés / arrêt maladie</li>
+            <li>Heures supplémentaires</li>
+            <li>Profil & santé (agent modifie, direction consulte)</li>
+          </ul>
         </div>
       </div>
     </div>
@@ -1671,19 +1683,6 @@ function setupLogin(){
   const userSel=document.getElementById("loginUser");
   roleSel.value=state.session?.role||"agent";
 
-  // Role buttons
-  document.getElementById("roleBtnAgent")?.addEventListener("click",()=>{
-    roleSel.value="agent";
-    document.querySelectorAll(".role-btn").forEach(b=>b.classList.toggle("active",b.dataset.role==="agent"));
-    fillUsers();
-  });
-  document.getElementById("roleBtnDir")?.addEventListener("click",()=>{
-    roleSel.value="direction";
-    document.querySelectorAll(".role-btn").forEach(b=>b.classList.toggle("active",b.dataset.role==="direction"));
-    fillUsers();
-  });
-  document.querySelectorAll(".role-btn").forEach(b=>b.classList.toggle("active",b.dataset.role===roleSel.value));
-
   function fillUsers(){
     const users=state.users.filter(u=>u.role===roleSel.value);
     userSel.innerHTML=users.map(u=>`<option value="${u.id}">${u.name} — ${u.unit}</option>`).join("");
@@ -1695,10 +1694,9 @@ function setupLogin(){
   function renderAvatars(users){
     let wrap=document.getElementById("loginAvatars");
     if(!wrap){
-      wrap=document.createElement("div"); wrap.id="loginAvatars"; wrap.className="login-avatars-grid";
+      wrap=document.createElement("div"); wrap.id="loginAvatars"; wrap.className="avatar-row";
       document.getElementById("btnLogin").before(wrap);
     }
-    wrap.className="login-avatars-grid";
     wrap.innerHTML=users.map(u=>`
       <div class="avatar-chip ${u.id===userSel.value?'active':''}" data-uid="${u.id}">
         <div class="avatar-circle" style="background:${avatarColor(u.id)}">${avatarInitials(u.name)}</div>
