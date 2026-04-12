@@ -213,10 +213,99 @@ textarea{min-height:92px;resize:vertical}
 .week-shift.off{ color:var(--muted); font-style:italic; font-size:11px; }
 .week-shift.team{ opacity:.6; }
 
-/* ── Notifications ───────────────────────────────────────────────────────────*/
+/* ── Notifications (profil) ──────────────────────────────────────────────────*/
 .notif-item{ padding:10px 12px; border-radius:12px; margin-bottom:6px; border:1px solid var(--line); font-size:13px; display:flex; flex-direction:column; gap:3px; }
 .notif-item.unread{ background:rgba(79,140,255,.08); border-color:rgba(79,140,255,.3); }
 .notif-item.read{ opacity:.55; background:rgba(255,255,255,.02); }
+
+/* ── Notification bell badge ─────────────────────────────────────────────────*/
+#btnNotif{ position:relative; }
+.notif-bell-badge{
+  position:absolute; top:4px; right:4px;
+  background:var(--danger); color:#fff;
+  font-size:9px; font-weight:900;
+  border-radius:999px; padding:1px 4px;
+  min-width:15px; text-align:center; line-height:1.5;
+  pointer-events:none;
+}
+
+/* ── Notification drawer ─────────────────────────────────────────────────────*/
+.notif-drawer-backdrop{
+  position:fixed; inset:0; background:rgba(0,0,0,.55);
+  z-index:200; opacity:0; pointer-events:none;
+  transition:opacity .22s ease;
+}
+.notif-drawer-backdrop.open{ opacity:1; pointer-events:all; }
+
+.notif-drawer{
+  position:fixed; top:0; left:50%;
+  transform:translateX(-50%) translateY(-110%);
+  width:min(420px, 100%);
+  max-height:72vh;
+  background: linear-gradient(180deg, #151f38 0%, #101828 100%);
+  border:1px solid rgba(255,255,255,.12);
+  border-top:none;
+  border-radius:0 0 24px 24px;
+  box-shadow:0 24px 60px rgba(0,0,0,.7);
+  z-index:201;
+  display:flex; flex-direction:column;
+  transition:transform .28s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;
+}
+.notif-drawer.open{ transform:translateX(-50%) translateY(0); }
+
+.notif-drawer-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 14px 10px;
+  border-bottom:1px solid var(--line);
+  flex-shrink:0;
+}
+.notif-drawer-head h3{ margin:0; font-size:15px; font-weight:900; }
+
+.notif-drawer-actions{ display:flex; gap:8px; align-items:center; }
+
+.notif-drawer-list{
+  overflow-y:auto; padding:10px 12px 16px;
+  display:flex; flex-direction:column; gap:8px;
+  flex:1;
+}
+.notif-drawer-empty{
+  display:flex; flex-direction:column; align-items:center;
+  gap:10px; padding:32px 20px;
+  color:var(--muted); font-size:13px; text-align:center;
+}
+.notif-drawer-empty svg{ width:32px;height:32px;opacity:.35; }
+
+.nditem{
+  display:flex; align-items:flex-start; gap:10px;
+  padding:10px 12px; border-radius:14px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.02);
+  font-size:13px; transition:background .15s;
+}
+.nditem.unread{
+  background:rgba(79,140,255,.09);
+  border-color:rgba(79,140,255,.3);
+}
+.nditem-icon{
+  width:32px; height:32px; border-radius:10px;
+  display:grid; place-items:center;
+  flex-shrink:0; font-size:15px;
+}
+.nditem-icon.swap{ background:rgba(79,140,255,.18); }
+.nditem-icon.leave{ background:rgba(50,213,131,.15); }
+.nditem-icon.ot{ background:rgba(255,196,0,.15); }
+.nditem-icon.info{ background:rgba(255,255,255,.07); }
+.nditem-body{ flex:1; min-width:0; }
+.nditem-msg{ line-height:1.4; }
+.nditem-time{ color:var(--muted); font-size:11px; margin-top:3px; }
+.nditem-del{
+  width:26px; height:26px; border-radius:8px; flex-shrink:0;
+  border:1px solid var(--line); background:rgba(255,255,255,.04);
+  color:var(--muted); cursor:pointer; display:grid; place-items:center;
+  transition:background .15s, color .15s;
+}
+.nditem-del:hover{ background:rgba(255,79,109,.2); color:var(--danger); border-color:rgba(255,79,109,.35); }
 
 
 /* ═══════════════════════════════════════════════
@@ -536,7 +625,10 @@ textarea{min-height:92px;resize:vertical}
           </div>
         </div>
 
-        <div class="appbar-right">
+        <div class="appbar-right" style="display:flex;gap:8px;align-items:center">
+          <button class="iconbtn" id="btnNotif" title="Notifications" aria-label="Notifications" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </button>
           <button class="iconbtn" id="btnAccount" title="Compte" aria-label="Compte">
             <svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 10-16 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 13a4 4 0 100-8 4 4 0 000 8z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
           </button>
@@ -561,6 +653,21 @@ textarea{min-height:92px;resize:vertical}
       </div>
 
       <div class="toast hidden" id="toast"></div>
+
+      <!-- Notification drawer -->
+      <div class="notif-drawer-backdrop" id="notifBackdrop"></div>
+      <div class="notif-drawer" id="notifDrawer" role="dialog" aria-modal="true" aria-label="Notifications">
+        <div class="notif-drawer-head">
+          <h3>🔔 Notifications</h3>
+          <div class="notif-drawer-actions">
+            <button class="btn small ghost" id="btnDrawerMarkAll" style="font-size:12px">Tout lu</button>
+            <button class="iconbtn" id="btnDrawerClose" aria-label="Fermer" style="width:32px;height:32px;border-radius:10px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="notif-drawer-list" id="notifDrawerList"></div>
+      </div>
     </div>
   </template>
 
@@ -1534,18 +1641,96 @@ function setupShell(){
   const tabs=state.session.role==="direction"?tabsDirection:tabsAgent;
   const count=pendingCount();
   const tabbar=document.getElementById("tabbar");
-  const agentNotifs = agentNotifCount();
   tabbar.innerHTML=tabs.map(t=>`
     <div class="tab ${t.id===currentTab?'active':''}" data-tab="${t.id}" style="position:relative">
       ${icons[t.icon]}
       ${t.id==="validations"&&count>0?`<span style="position:absolute;top:4px;right:6px;background:var(--danger);color:#fff;font-size:10px;font-weight:900;border-radius:999px;padding:1px 5px;min-width:16px;text-align:center;line-height:1.4">${count}</span>`:""}
-      ${t.id==="profil"&&agentNotifs>0?`<span style="position:absolute;top:4px;right:6px;background:var(--danger);color:#fff;font-size:10px;font-weight:900;border-radius:999px;padding:1px 5px;min-width:16px;text-align:center;line-height:1.4">${agentNotifs}</span>`:""}
       <span>${t.label}</span>
     </div>`).join("");
   tabbar.querySelectorAll(".tab").forEach(el=>el.addEventListener("click",()=>navigate(el.getAttribute("data-tab"))));
   document.getElementById("btnBack").addEventListener("click",()=>{ if(navStack.length){currentTab=navStack.pop();render();}else toast("Vous êtes déjà à la racine 🙂"); });
   document.getElementById("btnAccount").addEventListener("click",()=>navigate("compte"));
+
+  // Notification bell — agents only
+  const btnNotif=document.getElementById("btnNotif");
+  if(state.session.role==="agent"){
+    btnNotif.style.display="";
+    updateNotifBell();
+    btnNotif.onclick=openNotifDrawer;
+  } else {
+    btnNotif.style.display="none";
+  }
+
+  document.getElementById("notifBackdrop").addEventListener("click", closeNotifDrawer);
+  document.getElementById("btnDrawerClose").addEventListener("click", closeNotifDrawer);
+  document.getElementById("btnDrawerMarkAll").addEventListener("click",()=>{
+    markNotifsRead(); updateNotifBell(); renderNotifDrawerContent();
+  });
+
   updateHeader();
+}
+
+function updateNotifBell(){
+  const btn=document.getElementById("btnNotif");
+  if(!btn||btn.style.display==="none") return;
+  const n=agentNotifCount();
+  let badge=btn.querySelector(".notif-bell-badge");
+  if(n>0){
+    if(!badge){ badge=document.createElement("span"); badge.className="notif-bell-badge"; btn.appendChild(badge); }
+    badge.textContent=n>9?"9+":n;
+  } else {
+    if(badge) badge.remove();
+  }
+}
+
+function openNotifDrawer(){
+  document.getElementById("notifBackdrop").classList.add("open");
+  document.getElementById("notifDrawer").classList.add("open");
+  renderNotifDrawerContent();
+}
+
+function closeNotifDrawer(){
+  document.getElementById("notifBackdrop").classList.remove("open");
+  document.getElementById("notifDrawer").classList.remove("open");
+}
+
+function renderNotifDrawerContent(){
+  const uid=state.session?.userId;
+  const all=(state.notifications||[]).filter(n=>n.userId===uid).slice().reverse();
+  const list=document.getElementById("notifDrawerList");
+  if(!list) return;
+  const typeIcon={swap:"🔄",leave:"🏖️",ot:"⏱️"};
+  const typeCls={swap:"swap",leave:"leave",ot:"ot"};
+  if(!all.length){
+    list.innerHTML=`<div class="notif-drawer-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <div>Aucune notification pour l'instant</div>
+    </div>`;
+    return;
+  }
+  list.innerHTML=all.map(n=>`
+    <div class="nditem ${n.read?"":"unread"}" data-nid="${n.id}">
+      <div class="nditem-icon ${typeCls[n.type]||"info"}">${typeIcon[n.type]||"📋"}</div>
+      <div class="nditem-body">
+        <div class="nditem-msg">${escapeHtml(n.msg)}</div>
+        <div class="nditem-time">${n.time||""}</div>
+      </div>
+      <button class="nditem-del" data-del="${n.id}" title="Supprimer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>`).join("");
+
+  list.querySelectorAll("[data-del]").forEach(btn=>{
+    btn.addEventListener("click",(e)=>{
+      e.stopPropagation();
+      const id=btn.getAttribute("data-del");
+      state.notifications=(state.notifications||[]).filter(n=>n.id!==id);
+      saveState(); updateNotifBell(); renderNotifDrawerContent();
+    });
+  });
+
+  // Mark as read when drawer is open
+  markNotifsRead(); updateNotifBell();
 }
 
 function navigate(tabId){ if(tabId===currentTab) return; navStack.push(currentTab); currentTab=tabId; render(); }
