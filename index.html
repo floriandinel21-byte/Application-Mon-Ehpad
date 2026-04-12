@@ -2637,9 +2637,7 @@ function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===
 function renderWeekView({meId, unit}){
   state.ui=state.ui||{};
   const today=new Date();
-  // offset stored in state.ui.weekOffset (number of weeks from current)
   const offset=state.ui.weekOffset||0;
-  // get Monday of current week + offset
   const monday=new Date(today);
   monday.setDate(today.getDate()-((today.getDay()+6)%7)+offset*7);
 
@@ -2650,35 +2648,86 @@ function renderWeekView({meId, unit}){
   }
   const weekLabel=`${days[0].toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} – ${days[6].toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}`;
 
-  const rows = days.map(d=>{
-    const di=iso(d), isToday=sameDay(d,today);
-    const myS=state.shifts.filter(s=>s.userId===meId&&s.date===di);
-    const unitS=state.shifts.filter(s=>s.unit===unit&&s.date===di&&s.userId!==meId);
-    const dw=d.getDay();
-    const dayStyle=isToday?"background:rgba(79,140,255,.12);border-color:rgba(79,140,255,.35)":"";
+  // All agents in unit
+  const unitAgents = state.users.filter(u=>u.role==="agent"&&u.unit===unit);
+
+  // Header row: days
+  const headerCells = days.map(d=>{
+    const dw=d.getDay(), isToday=sameDay(d,today);
     const numColor=(dw===0||dw===6)?"color:rgba(255,150,150,.9)":"";
-    return `
-      <div class="week-row" style="${dayStyle}">
-        <div class="week-day-label">
-          <div class="week-day-name" style="${numColor}">${d.toLocaleDateString("fr-FR",{weekday:"short"})}</div>
-          <div class="week-day-num" style="${numColor}">${d.getDate()}</div>
-        </div>
-        <div class="week-shifts">
-          ${myS.length?myS.map(s=>`<div class="week-shift me"><span class="tag ${shiftCls(s.label)}" style="font-size:11px">${s.label}</span> <span style="font-size:11px;font-weight:800">${s.start}–${s.end}</span></div>`).join(""):
-            `<div class="week-shift off">Repos</div>`}
-          ${unitS.slice(0,2).map(s=>`<div class="week-shift team"><span style="font-size:10px;color:var(--muted)">${userName(s.userId).split(" ")[0]} ${s.start}–${s.end}</span></div>`).join("")}
-        </div>
-      </div>`;
+    const bg=isToday?"background:rgba(79,140,255,.15);border-radius:8px;":"";
+    return `<th style="padding:6px 4px;text-align:center;font-weight:600;font-size:11px;min-width:60px;${bg}">
+      <div style="${numColor};font-size:10px;color:var(--muted)">${d.toLocaleDateString("fr-FR",{weekday:"short"})}</div>
+      <div style="${numColor};font-weight:800;font-size:14px">${d.getDate()}</div>
+    </th>`;
+  }).join("");
+
+  // Agent rows
+  const agentRows = unitAgents.map(agent=>{
+    const isMe = agent.id===meId;
+    const cells = days.map(d=>{
+      const di=iso(d), isToday=sameDay(d,today);
+      const s=state.shifts.find(sh=>sh.userId===agent.id&&sh.date===di);
+      const bg=isToday?"background:rgba(79,140,255,.06)":"";
+      if(!s) return `<td style="padding:4px;text-align:center;${bg}"><span style="font-size:10px;color:rgba(255,255,255,.15)">—</span></td>`;
+      const cls=shiftCls(s.label);
+      const colors={matin:"rgba(79,140,255,.2)",soir:"rgba(255,159,67,.2)",night:"rgba(168,85,247,.2)"};
+      const textColors={matin:"#a8c4ff",soir:"#ffd4a8",night:"#d4a8ff"};
+      return `<td style="padding:4px;text-align:center;${bg}">
+        <div style="background:${colors[cls]};border-radius:6px;padding:3px 4px;font-size:10px;font-weight:700;color:${textColors[cls]}">${s.label}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px">${s.start}–${s.end}</div>
+      </td>`;
+    }).join("");
+
+    const rowBg=isMe?"background:rgba(79,140,255,.07);":"";
+    const nameParts=agent.name.split(" ");
+    const shortName=nameParts[0]+(nameParts[1]?" "+nameParts[1][0]+".":"");
+    return `<tr style="${rowBg}border-bottom:1px solid rgba(255,255,255,.04)">
+      <td style="padding:8px 10px;font-size:12px;font-weight:${isMe?"800":"600"};white-space:nowrap;min-width:90px;position:sticky;left:0;background:${isMe?"rgba(15,26,48,.95)":"rgba(11,18,32,.95)"}">
+        ${isMe?`<span style="color:var(--primary)">${shortName}</span>`:shortName}
+      </td>
+      ${cells}
+    </tr>`;
+  }).join("");
+
+  // Weekly hours summary per agent
+  const hoursRow = unitAgents.map(agent=>{
+    const weekMins = days.reduce((acc,d)=>{
+      const s=state.shifts.find(sh=>sh.userId===agent.id&&sh.date===iso(d));
+      if(!s) return acc;
+      const [sh,sm]=s.start.split(":").map(Number);
+      let [eh,em]=s.end.split(":").map(Number);
+      let m=(eh*60+em)-(sh*60+sm); if(m<0) m+=1440;
+      return acc+m;
+    },0);
+    const h=Math.floor(weekMins/60), m=weekMins%60;
+    const disp=weekMins>0?(h+"h"+(m?String(m).padStart(2,"0"):"")):"—";
+    const color=weekMins>35*60?"#ff4f6d":weekMins>28*60?"#ff9f43":"var(--muted)";
+    return `<td style="padding:4px;text-align:center;font-size:10px;font-weight:700;color:${color}">${disp}</td>`;
   }).join("");
 
   return `
-    <div class="week-wrap">
+    <div class="week-wrap" style="overflow-x:auto">
       <div class="week-nav-row">
         <button class="iconbtn" id="btnWeekPrev">${icons.chevLeft}</button>
         <span style="font-size:13px;font-weight:800">${weekLabel}</span>
         <button class="iconbtn" id="btnWeekNext">${icons.chevRight}</button>
       </div>
-      <div class="week-grid">${rows}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--line)">
+            <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--muted);font-weight:600;min-width:90px;position:sticky;left:0;background:var(--card)">Agent</th>
+            ${headerCells}
+          </tr>
+        </thead>
+        <tbody>
+          ${agentRows}
+          <tr style="border-top:1px solid var(--line)">
+            <td style="padding:6px 10px;font-size:10px;color:var(--muted);font-weight:600;position:sticky;left:0;background:var(--card)">Total semaine</td>
+            ${hoursRow}
+          </tr>
+        </tbody>
+      </table>
     </div>`;
 }
 
