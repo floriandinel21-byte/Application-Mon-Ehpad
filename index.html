@@ -214,9 +214,19 @@ textarea{min-height:92px;resize:vertical}
 .week-shift.team{ opacity:.6; }
 
 /* ── Notifications (profil) ──────────────────────────────────────────────────*/
-.notif-item{ padding:10px 12px; border-radius:12px; margin-bottom:6px; border:1px solid var(--line); font-size:13px; display:flex; flex-direction:column; gap:3px; }
+.notif-item{ padding:10px 12px; border-radius:14px; margin-bottom:6px; border:1px solid var(--line); font-size:13px; display:flex; align-items:flex-start; gap:10px; }
 .notif-item.unread{ background:rgba(79,140,255,.08); border-color:rgba(79,140,255,.3); }
-.notif-item.read{ opacity:.55; background:rgba(255,255,255,.02); }
+.notif-item.read{ opacity:.5; background:rgba(255,255,255,.02); }
+.notif-item-icon{ width:32px; height:32px; border-radius:10px; display:grid; place-items:center; flex-shrink:0; font-size:15px; }
+.notif-item-icon.swap{ background:rgba(79,140,255,.18); }
+.notif-item-icon.leave{ background:rgba(50,213,131,.15); }
+.notif-item-icon.ot{ background:rgba(255,196,0,.15); }
+.notif-item-icon.info{ background:rgba(255,255,255,.07); }
+.notif-item-body{ flex:1; min-width:0; }
+.notif-item-msg{ font-size:13px; line-height:1.4; }
+.notif-item-time{ color:var(--muted); font-size:11px; margin-top:3px; }
+.notif-item-del{ width:26px; height:26px; border-radius:8px; flex-shrink:0; border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--muted); cursor:pointer; display:grid; place-items:center; transition:background .15s,color .15s; }
+.notif-item-del:hover{ background:rgba(255,79,109,.2); color:var(--danger); border-color:rgba(255,79,109,.35); }
 
 /* ── Notification bell badge ─────────────────────────────────────────────────*/
 #btnNotif{ position:relative; }
@@ -2212,15 +2222,24 @@ function viewProfileAgent(){
   return `
     ${myNotifs.length?`
     <div class="carditem">
-      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
-        <h3 style="margin:0">Notifications</h3>
-        <button class="btn small ghost" id="btnClearNotifs">Tout marquer lu</button>
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0">🔔 Notifications</h3>
+        <button class="btn small ghost" id="btnClearNotifs" style="font-size:12px">Tout marquer lu</button>
       </div>
-      ${myNotifs.slice(0,5).map(n=>`
-        <div class="notif-item ${n.read?"read":"unread"}">
-          <div style="font-size:13px">${n.msg}</div>
-          <div class="muted">${n.time}</div>
-        </div>`).join("")}
+      ${myNotifs.map(n=>{
+        const typeIcon={swap:"🔄",leave:"🏖️",ot:"⏱️"};
+        const typeCls={swap:"swap",leave:"leave",ot:"ot"};
+        return `<div class="notif-item ${n.read?"read":"unread"}" data-nid="${n.id}">
+          <div class="notif-item-icon ${typeCls[n.type]||"info"}">${typeIcon[n.type]||"📋"}</div>
+          <div class="notif-item-body">
+            <div class="notif-item-msg">${n.msg}</div>
+            <div class="notif-item-time">${n.time||""}</div>
+          </div>
+          <button class="notif-item-del" data-del="${n.id}" title="Supprimer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>`;
+      }).join("")}
     </div>`:""}
     <div class="carditem">
       <h3>Profil & santé</h3><div class="muted">Visible par la direction.</div><div class="hr"></div>
@@ -2558,7 +2577,15 @@ function attachHandlers(tabId){
     document.getElementById("btnClearNotifs")?.addEventListener("click",()=>{
       const uid=state.session.userId;
       state.notifications=(state.notifications||[]).filter(n=>n.userId!==uid);
-      saveState(); renderTab("profil");
+      saveState(); updateNotifBell(); renderTab("profil");
+    });
+    document.querySelectorAll(".notif-item-del").forEach(btn=>{
+      btn.addEventListener("click",(e)=>{
+        e.stopPropagation();
+        const id=btn.getAttribute("data-del");
+        state.notifications=(state.notifications||[]).filter(n=>n.id!==id);
+        saveState(); updateNotifBell(); renderTab("profil");
+      });
     });
     document.getElementById("btnSaveProfile")?.addEventListener("click",()=>{
       const u=me(), p=state.profiles[u.id]||{userId:u.id};
