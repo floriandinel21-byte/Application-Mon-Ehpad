@@ -2188,28 +2188,60 @@ function viewDashboard(){
 
     ${(absentToday.length || available.length) ? `
     <div class="carditem">
-      <h3 style="margin:0 0 12px">Remplacements</h3>
-      ${absentToday.length ? `
-        <div class="section-title" style="margin-bottom:8px">Absents aujourd'hui (${absentToday.length})</div>
-        ${absentToday.map(x=>`
-          <div class="detail-line">
-            <div class="left">
-              <div style="font-weight:800">${x.user.name}</div>
-              <div class="muted">${x.user.unit} · ${x.type}</div>
+      <h3 style="margin:0 0 4px">🔄 Roulement automatique</h3>
+      <div class="muted" style="margin-bottom:12px;font-size:12px">Suggestions basées sur l'unité, la charge et les disponibilités</div>
+      ${absentToday.length ? absentToday.map(x=>{
+        // Score chaque agent disponible pour remplacer cet absent
+        const scored = available.map(u=>{
+          let score = 0;
+          const reasons = [];
+          // Même unité = priorité max
+          if(u.unit === x.user.unit){ score += 100; reasons.push("Même unité"); }
+          // Moins d'heures cette semaine = moins chargé
+          const weekMins = hoursThisWeek(u.id);
+          if(weekMins < 20*60){ score += 30; reasons.push("Peu chargé"); }
+          else if(weekMins < 30*60){ score += 15; }
+          // Moins d'heures supp ce mois
+          const now2=new Date(), ym2=now2.getFullYear()+"-"+String(now2.getMonth()+1).padStart(2,"0");
+          const otM = state.overtime.filter(o=>o.userId===u.id&&o.status==="approved"&&o.date.startsWith(ym2)).reduce((a,o)=>a+o.minutes,0);
+          if(otM === 0){ score += 10; reasons.push("0 h.supp"); }
+          return {u, score, reasons};
+        }).sort((a,b)=>b.score-a.score);
+        const best = scored[0];
+        const others = scored.slice(1,3);
+        return `<div class="carditem" style="padding:12px;margin-bottom:8px;background:rgba(255,79,109,.06);border-color:rgba(255,79,109,.25)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div>
+              <div style="font-weight:850;font-size:13px">${x.user.name}</div>
+              <div class="muted" style="font-size:11px">${x.user.unit} · ${x.type}</div>
             </div>
             <span class="badge no">Absent</span>
-          </div>`).join('')}
-        <div class="hr"></div>` : ''}
-      ${available.length ? `
-        <div class="section-title" style="margin-bottom:8px">Disponibles (${available.length})</div>
-        ${available.map(u=>`
-          <div class="detail-line">
-            <div class="left">
-              <div style="font-weight:800">${u.name}</div>
-              <div class="muted">${u.unit}</div>
+          </div>
+          ${best ? `
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;font-weight:800">✨ Suggestion principale</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:12px;background:rgba(50,213,131,.08);border:1px solid rgba(50,213,131,.25);margin-bottom:8px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="width:30px;height:30px;border-radius:10px;background:${avatarColor(best.u.id)};display:grid;place-items:center;font-weight:900;font-size:11px;flex-shrink:0">${avatarInitials(best.u.name)}</div>
+                <div>
+                  <div style="font-weight:800;font-size:13px">${best.u.name}</div>
+                  <div style="font-size:10px;color:#32d583">${best.reasons.join(" · ")}</div>
+                </div>
+              </div>
+              <button class="btn small primary" data-assign="${best.u.id}" style="flex-shrink:0">Assigner</button>
             </div>
-            <button class="btn small primary" data-assign="${u.id}">Assigner</button>
-          </div>`).join('')}` : `<div class="muted">Aucun agent disponible aujourd'hui.</div>`}
+            ${others.filter(o=>o.score>0).length ? `
+              <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Autres disponibles</div>
+              ${others.filter(o=>o.score>0).map(o=>`
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--line);margin-bottom:5px">
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <div style="width:26px;height:26px;border-radius:8px;background:${avatarColor(o.u.id)};display:grid;place-items:center;font-weight:900;font-size:10px;flex-shrink:0">${avatarInitials(o.u.name)}</div>
+                    <div style="font-size:12px;font-weight:750">${o.u.name} <span class="muted">· ${o.u.unit}</span></div>
+                  </div>
+                  <button class="btn small ghost" data-assign="${o.u.id}" style="font-size:11px;padding:5px 10px">Assigner</button>
+                </div>`).join("")}` : ""}
+          ` : `<div class="muted" style="font-size:12px">Aucun agent disponible pour ce remplacement.</div>`}
+        </div>`;
+      }).join('') : `<div class="muted">Aucune absence aujourd'hui 🎉</div>`}
     </div>` : ''}
     </div><!-- end col1 -->
     <div><!-- col2 -->
