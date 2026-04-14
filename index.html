@@ -2758,12 +2758,127 @@ function viewAccount(){
       <div class="muted" style="margin-top:10px">En production : connexion sécurisée par e-mail (Firebase Auth).</div>
     </div>
     <div class="carditem">
-      <h3>Apparence</h3><div class="muted">Choisir le thème de l'application.</div><div class="hr"></div>
+      <h3>Apparence</h3><div class="muted">Choisir le thème et la langue de l'application.</div><div class="hr"></div>
+      <div class="section-title" style="margin-bottom:8px">Thème</div>
       <div class="grid2" style="grid-template-columns:repeat(3,1fr)">
         <button class="btn theme-btn ${(localStorage.getItem('ehpad_theme')||'system')==='dark'?'primary':'ghost'}" data-theme-pick="dark">🌙 Sombre</button>
         <button class="btn theme-btn ${(localStorage.getItem('ehpad_theme')||'system')==='light'?'primary':'ghost'}" data-theme-pick="light">☀️ Clair</button>
         <button class="btn theme-btn ${(localStorage.getItem('ehpad_theme')||'system')==='system'?'primary':'ghost'}" data-theme-pick="system">⚙️ Système</button>
       </div>
+      <div class="hr"></div>
+      <div class="section-title" style="margin-bottom:8px">Langue</div>
+      <div class="muted" style="margin-bottom:10px;font-size:12px">Choisir une langue active la traduction automatique du navigateur.</div>
+      <div class="field">
+        <select id="langSelect" style="font-size:13px">
+          <option value="">🌐 Langue du navigateur (défaut)</option>
+          <option value="af">Afrikaans</option>
+          <option value="sq">Albanais</option>
+          <option value="am">Amharique</option>
+          <option value="ar">العربية — Arabe</option>
+          <option value="hy">Հայերեն — Arménien</option>
+          <option value="az">Azerbaïdjanais</option>
+          <option value="eu">Basque</option>
+          <option value="be">Biélorusse</option>
+          <option value="bn">বাংলা — Bengali</option>
+          <option value="bs">Bosnien</option>
+          <option value="bg">Bulgare</option>
+          <option value="ca">Català — Catalan</option>
+          <option value="ceb">Cebuano</option>
+          <option value="zh-CN">中文 (简体) — Chinois simplifié</option>
+          <option value="zh-TW">中文 (繁體) — Chinois traditionnel</option>
+          <option value="hr">Hrvatski — Croate</option>
+          <option value="cs">Čeština — Tchèque</option>
+          <option value="da">Dansk — Danois</option>
+          <option value="nl">Nederlands — Néerlandais</option>
+          <option value="en">English — Anglais</option>
+          <option value="eo">Esperanto</option>
+          <option value="et">Eesti — Estonien</option>
+          <option value="tl">Filipino</option>
+          <option value="fi">Suomi — Finnois</option>
+          <option value="fr" selected>Français</option>
+          <option value="fy">Frison occidental</option>
+          <option value="gl">Galicien</option>
+          <option value="ka">ქართული — Géorgien</option>
+          <option value="de">Deutsch — Allemand</option>
+          <option value="el">Ελληνικά — Grec</option>
+          <option value="gu">ગુજરાતી — Gujarati</option>
+          <option value="ht">Kreyòl ayisyen — Créole haïtien</option>
+          <option value="ha">Haoussa</option>
+          <option value="he">עברית — Hébreu</option>
+          <option value="hi">हिन्दी — Hindi</option>
+          <option value="hu">Magyar — Hongrois</option>
+          <option value="is">Íslenska — Islandais</option>
+          <option value="ig">Igbo</option>
+          <option value="id">Bahasa Indonesia — Indonésien</option>
+          <option value="ga">Gaeilge — Irlandais</option>
+          <option value="it">Italiano — Italien</option>
+          <option value="ja">日本語 — Japonais</option>
+          <option value="jw">Javanais</option>
+          <option value="kn">ಕನ್ನಡ — Kannada</option>
+          <option value="kk">Қазақша — Kazakh</option>
+          <option value="km">ខ្មែរ — Khmer</option>
+          <option value="ko">한국어 — Coréen</option>
+          <option value="ku">Kurdî — Kurde</option>
+          <option value="ky">Kirghiz</option>
+          <option value="lo">ລາວ — Laotien</option>
+          <option value="la">Latina — Latin</option>
+          <option value="lv">Latviešu — Letton</option>
+          <option value="lt">Lietuvių — Lituanien</option>
+          <option value="lb">Lëtzebuergesch — Luxembourgeois</option>
+          <option value="mk">Македонски — Macédonien</option>
+          <option value="mg">Malagasy — Malgache</option>
+          <option value="ms">Bahasa Melayu — Malais</option>
+          <option value="ml">മലയാളം — Malayalam</option>
+          <option value="mt">Malti — Maltais</option>
+          <option value="mi">Te Reo Māori — Maori</option>
+          <option value="mr">मराठी — Marathi</option>
+          <option value="mn">Монгол — Mongol</option>
+          <option value="my">မြန်မာဘာသာ — Birman</option>
+          <option value="ne">नेपाली — Népalais</option>
+          <option value="no">Norsk — Norvégien</option>
+          <option value="ny">Chichewa</option>
+          <option value="or">ଓଡ଼ିଆ — Odia</option>
+          <option value="ps">پښتو — Pachto</option>
+          <option value="fa">فارسی — Persan</option>
+          <option value="pl">Polski — Polonais</option>
+          <option value="pt">Português — Portugais</option>
+          <option value="pa">ਪੰਜਾਬੀ — Pendjabi</option>
+          <option value="ro">Română — Roumain</option>
+          <option value="ru">Русский — Russe</option>
+          <option value="sm">Samoan</option>
+          <option value="gd">Gàidhlig — Gaélique écossais</option>
+          <option value="sr">Српски — Serbe</option>
+          <option value="st">Sotho du Sud</option>
+          <option value="sn">Shona</option>
+          <option value="sd">سنڌي — Sindhi</option>
+          <option value="si">සිංහල — Cingalais</option>
+          <option value="sk">Slovenčina — Slovaque</option>
+          <option value="sl">Slovenščina — Slovène</option>
+          <option value="so">Soomaali — Somali</option>
+          <option value="es">Español — Espagnol</option>
+          <option value="su">Sundanais</option>
+          <option value="sw">Kiswahili — Swahili</option>
+          <option value="sv">Svenska — Suédois</option>
+          <option value="tg">Таджикӣ — Tadjik</option>
+          <option value="ta">தமிழ் — Tamoul</option>
+          <option value="tt">Татар — Tatar</option>
+          <option value="te">తెలుగు — Télougou</option>
+          <option value="th">ภาษาไทย — Thaï</option>
+          <option value="tr">Türkçe — Turc</option>
+          <option value="tk">Türkmençe — Turkmène</option>
+          <option value="uk">Українська — Ukrainien</option>
+          <option value="ur">اردو — Ourdou</option>
+          <option value="ug">ئۇيغۇرچە — Ouïghour</option>
+          <option value="uz">O'zbek — Ouzbek</option>
+          <option value="vi">Tiếng Việt — Vietnamien</option>
+          <option value="cy">Cymraeg — Gallois</option>
+          <option value="xh">isiXhosa — Xhosa</option>
+          <option value="yi">ייִדיש — Yiddish</option>
+          <option value="yo">Yorùbá — Yoruba</option>
+          <option value="zu">isiZulu — Zoulou</option>
+        </select>
+      </div>
+      <button class="btn primary" id="btnApplyLang" style="margin-top:8px">🌐 Appliquer la langue</button>
     </div>
     <div class="carditem">
       <h3>Données locales</h3><div class="muted">Réinitialise toutes les données de démo.</div><div class="hr"></div>
@@ -3062,6 +3177,17 @@ function attachHandlers(tabId){
       if(!confirm("Réinitialiser toutes les données de démo ?\nCette action est irréversible.")) return;
       localStorage.removeItem(LS_KEY); state=loadState(); saveState(); navStack=[]; currentTab="planning"; toast("Réinitialisé ✅"); render();
     });
+    // Langue
+    const savedLang = localStorage.getItem('ehpad_lang')||'';
+    const langSel = document.getElementById('langSelect');
+    if(langSel && savedLang) langSel.value = savedLang;
+    document.getElementById('btnApplyLang')?.addEventListener('click',()=>{
+      const lang = document.getElementById('langSelect')?.value||'';
+      localStorage.setItem('ehpad_lang', lang);
+      applyLang(lang);
+      toast(lang ? '🌐 Langue appliquée' : '🌐 Langue réinitialisée');
+    });
+
     document.querySelectorAll(".theme-btn").forEach(btn=>{
       btn.addEventListener("click",()=>{
         const pick=btn.getAttribute("data-theme-pick");
@@ -3154,7 +3280,13 @@ function openAddShiftModal(preAgentId){
 
 function setSwapStatus(id,status){
   const r=state.swapRequests.find(x=>x.id===id); if(!r) return; r.status=status; r.resolvedAt=nowTime(); r.resolvedBy=me().name;
-  if(status==="approved"){ const s1=state.shifts.find(s=>s.id===r.requesterShiftId), s2=state.shifts.find(s=>s.id===r.targetShiftId); if(s1&&s2){const tmp=s1.userId;s1.userId=s2.userId;s2.userId=tmp;} }
+  if(status==="approved"){
+    const s1=state.shifts.find(s=>s.id===r.requesterShiftId), s2=state.shifts.find(s=>s.id===r.targetShiftId);
+    if(s1&&s2){const tmp=s1.userId;s1.userId=s2.userId;s2.userId=tmp;}
+    // Supprimer les messages de type swap entre les deux agents
+    const swapKey=convo(r.requesterId,r.targetId);
+    if(state.messages[swapKey]) state.messages[swapKey]=state.messages[swapKey].filter(m=>m.type!=="swap");
+  }
   const emoji=status==="approved"?"✅":"❌";
   const label=status==="approved"?"validé":"refusé";
   pushNotif(r.requesterId,`Échange avec ${r.targetName||""} ${label} par la direction ${emoji}`,"swap");
@@ -3642,6 +3774,20 @@ mql.addEventListener('change', () => {
 
 // Applique dès le boot
 applyTheme(localStorage.getItem(THEME_KEY) || 'system');
+
+// ── Langue ────────────────────────────────────────────────────────────────────
+function applyLang(lang){
+  if(lang){
+    document.documentElement.lang = lang;
+    // Force Chrome/Edge built-in translation prompt
+    document.documentElement.setAttribute('translate', 'yes');
+  } else {
+    document.documentElement.lang = 'fr';
+    document.documentElement.removeAttribute('translate');
+  }
+}
+// Apply saved language on boot
+applyLang(localStorage.getItem('ehpad_lang')||'');
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 requestNotifPermission();
