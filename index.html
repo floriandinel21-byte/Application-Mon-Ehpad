@@ -2325,7 +2325,22 @@ function viewSwapsAgent(){
   const u=me();
   const myShifts=state.shifts.filter(s=>s.userId===u.id).sort((a,b)=>a.date.localeCompare(b.date));
   const colleagues=state.users.filter(x=>x.role==="agent"&&x.unit===u.unit&&x.id!==u.id);
-  const history=state.swapRequests.filter(r=>r.requesterId===u.id||r.targetId===u.id).slice().reverse();
+  const swaps=state.swapRequests.filter(r=>r.requesterId===u.id||r.targetId===u.id).slice().reverse();
+  const leaves=state.leaveRequests.filter(r=>r.userId===u.id).slice().reverse();
+  const filter=state.ui?.historyFilter||"all";
+  const filteredSwaps=filter==="all"||filter==="swap"?swaps:[];
+  const filteredLeaves=filter==="all"||filter==="leave"?leaves:[];
+  const allItems=[
+    ...filteredSwaps.map(r=>({...r,_kind:"swap"})),
+    ...filteredLeaves.map(r=>({...r,_kind:"leave"}))
+  ].sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
+
+  const filterBtns=[
+    {id:"all",label:"Tout"},
+    {id:"swap",label:"🔄 Échanges"},
+    {id:"leave",label:"🏖️ Congés"},
+  ].map(f=>`<button class="btn small ${filter===f.id?"primary":"ghost"} hist-filter-btn" data-filter="${f.id}">${f.label}</button>`).join("");
+
   return `
     <div class="carditem">
       <h3>Proposer un échange</h3>
@@ -2338,24 +2353,83 @@ function viewSwapsAgent(){
       <div class="hint" id="swapHint"></div>
     </div>
     <div class="carditem">
-      <h3>Historique</h3><div class="muted">Toutes mes demandes</div><div class="hr"></div>
-      <div class="cardlist">${history.length?history.map(r=>swapCard(r)).join(""):`<div class="muted">Aucune demande pour l'instant.</div>`}</div>
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 style="margin:0">Historique</h3>
+        <div class="row gap">${filterBtns}</div>
+      </div>
+      <div class="muted" style="margin-bottom:10px">${allItems.length} demande(s)</div>
+      <div class="cardlist">
+        ${allItems.length ? allItems.map(r=>r._kind==="swap"?swapCard(r,u.id):leaveCard(r)).join("") : `<div class="muted">Aucune demande pour l'instant.</div>`}
+      </div>
     </div>`;
 }
 
-function swapCard(r){
+function swapCard(r, meId){
   const my=state.shifts.find(s=>s.id===r.requesterShiftId), co=state.shifts.find(s=>s.id===r.targetShiftId);
   const rN=r.requesterName||userName(r.requesterId), tN=r.targetName||userName(r.targetId);
-  const badge=r.status==="approved"?`<span class="badge ok">Validé ✓</span>`:r.status==="refused"?`<span class="badge no">Refusé ✗</span>`:`<span class="badge warn">En attente…</span>`;
-  return `<div class="carditem">
-    <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
-      <div><div style="font-weight:800">Échange • ${rN} ↔ ${tN}</div><div class="muted">${r.createdAt} • ${badge}</div></div>
+  const isRequester = r.requesterId === meId;
+  const statusCfg = {
+    approved: {cls:"ok",  icon:"✅", label:"Validé",    bg:"rgba(50,213,131,.08)",  border:"rgba(50,213,131,.3)"},
+    refused:  {cls:"no",  icon:"❌", label:"Refusé",    bg:"rgba(255,79,109,.08)",   border:"rgba(255,79,109,.3)"},
+    pending:  {cls:"warn",icon:"⏳", label:"En attente", bg:"rgba(255,196,0,.07)",   border:"rgba(255,196,0,.3)"}
+  };
+  const s = statusCfg[r.status]||statusCfg.pending;
+  return `<div class="carditem" style="background:${s.bg};border-color:${s.border};padding:14px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px">
+      <div>
+        <div style="font-weight:850;font-size:13px">🔄 Échange · ${isRequester?"Tu as demandé":"Demandé par "+rN}</div>
+        <div class="muted" style="font-size:11px;margin-top:2px">Demande du ${r.createdAt||"—"}</div>
+      </div>
+      <span class="badge ${s.cls}" style="flex-shrink:0">${s.icon} ${s.label}</span>
     </div>
-    <div class="hr"></div>
     <div class="split">
-      <div class="carditem" style="padding:12px"><div class="muted">Demandeur</div><div style="font-weight:800;margin-top:4px">${my?fmtDate(my.date)+" • "+my.start+"–"+my.end:"—"}</div><div class="muted">${my?.label||""}</div></div>
-      <div class="carditem" style="padding:12px"><div class="muted">Horaire visé</div><div style="font-weight:800;margin-top:4px">${co?fmtDate(co.date)+" • "+co.start+"–"+co.end:"—"}</div><div class="muted">${co?.label||""}</div></div>
+      <div class="carditem" style="padding:10px">
+        <div class="muted" style="font-size:11px">${isRequester?"Mon horaire":"Horaire de "+rN}</div>
+        <div style="font-weight:800;font-size:13px;margin-top:3px">${my?fmtDate(my.date):"—"}</div>
+        <div style="font-size:12px;color:var(--muted)">${my?my.start+"–"+my.end+" · "+my.label:""}</div>
+      </div>
+      <div class="carditem" style="padding:10px">
+        <div class="muted" style="font-size:11px">${isRequester?"Horaire de "+tN:"Mon horaire"}</div>
+        <div style="font-weight:800;font-size:13px;margin-top:3px">${co?fmtDate(co.date):"—"}</div>
+        <div style="font-size:12px;color:var(--muted)">${co?co.start+"–"+co.end+" · "+co.label:""}</div>
+      </div>
     </div>
+    ${r.resolvedAt?`<div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:right">${s.icon} ${r.status==="approved"?"Validé":"Refusé"} par ${r.resolvedBy||"la direction"} · ${r.resolvedAt}</div>`:""}
+  </div>`;
+}
+
+function leaveCard(r){
+  const statusCfg = {
+    approved: {cls:"ok",  icon:"✅", label:"Approuvé",  bg:"rgba(50,213,131,.08)",  border:"rgba(50,213,131,.3)"},
+    refused:  {cls:"no",  icon:"❌", label:"Refusé",    bg:"rgba(255,79,109,.08)",   border:"rgba(255,79,109,.3)"},
+    pending:  {cls:"warn",icon:"⏳", label:"En attente", bg:"rgba(255,196,0,.07)",   border:"rgba(255,196,0,.3)"}
+  };
+  const s = statusCfg[r.status]||statusCfg.pending;
+  const days = r.from&&r.to ? daysBetween(r.from,r.to) : "—";
+  return `<div class="carditem" style="background:${s.bg};border-color:${s.border};padding:14px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px">
+      <div>
+        <div style="font-weight:850;font-size:13px">🏖️ ${r.type||"Congés"}</div>
+        <div class="muted" style="font-size:11px;margin-top:2px">Demande du ${r.createdAt||"—"}</div>
+      </div>
+      <span class="badge ${s.cls}" style="flex-shrink:0">${s.icon} ${s.label}</span>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div class="carditem" style="padding:8px 12px;flex:1;min-width:0">
+        <div class="muted" style="font-size:11px">Du</div>
+        <div style="font-weight:800;font-size:13px">${r.from?fmtDate(r.from):"—"}</div>
+      </div>
+      <div class="carditem" style="padding:8px 12px;flex:1;min-width:0">
+        <div class="muted" style="font-size:11px">Au</div>
+        <div style="font-weight:800;font-size:13px">${r.to?fmtDate(r.to):"—"}</div>
+      </div>
+      <div class="carditem" style="padding:8px 12px;flex-shrink:0">
+        <div class="muted" style="font-size:11px">Durée</div>
+        <div style="font-weight:800;font-size:13px">${days}j</div>
+      </div>
+    </div>
+    ${r.note?`<div class="muted" style="font-size:12px;margin-top:8px">📝 ${escapeHtml(r.note)}</div>`:""}
+    ${r.resolvedAt?`<div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:right">${s.icon} ${r.status==="approved"?"Approuvé":"Refusé"} par ${r.resolvedBy||"la direction"} · ${r.resolvedAt}</div>`:""}
   </div>`;
 }
 
@@ -2837,6 +2911,13 @@ function attachHandlers(tabId){
       pushNotif('📋 Échange demandé', me().name + ' souhaite échanger un horaire avec ' + (col?.name||colId) + '.', null); document.getElementById("swapHint").innerHTML=`<span class="badge ok">Envoyé</span><span class="badge warn">En attente de validation</span>`;
       toast("Demande envoyée ✅"); renderTab("echanges");
     });
+    // Filtres historique
+    document.querySelectorAll(".hist-filter-btn").forEach(btn=>{
+      btn.addEventListener("click",()=>{
+        state.ui=state.ui||{}; state.ui.historyFilter=btn.getAttribute("data-filter");
+        saveState(); renderTab("echanges");
+      });
+    });
   }
 
   if(tabId==="messages"){
@@ -3072,7 +3153,7 @@ function openAddShiftModal(preAgentId){
 }
 
 function setSwapStatus(id,status){
-  const r=state.swapRequests.find(x=>x.id===id); if(!r) return; r.status=status;
+  const r=state.swapRequests.find(x=>x.id===id); if(!r) return; r.status=status; r.resolvedAt=nowTime(); r.resolvedBy=me().name;
   if(status==="approved"){ const s1=state.shifts.find(s=>s.id===r.requesterShiftId), s2=state.shifts.find(s=>s.id===r.targetShiftId); if(s1&&s2){const tmp=s1.userId;s1.userId=s2.userId;s2.userId=tmp;} }
   const emoji=status==="approved"?"✅":"❌";
   const label=status==="approved"?"validé":"refusé";
@@ -3084,7 +3165,7 @@ function setSwapStatus(id,status){
   toast(status==="approved"?"Échange validé ✅ — planning mis à jour":"Échange refusé ❌"); renderTab(currentTab);
 }
 function setLeaveStatus(id,status){
-  const r=state.leaveRequests.find(x=>x.id===id); if(!r) return; r.status=status;
+  const r=state.leaveRequests.find(x=>x.id===id); if(!r) return; r.status=status; r.resolvedAt=nowTime(); r.resolvedBy=me().name;
   const emoji=status==="approved"?"✅":"❌";
   pushNotif(r.userId,`Votre demande de ${r.type} (${fmtDate(r.from)}→${fmtDate(r.to)}) a été ${status==="approved"?"approuvée":"refusée"} ${emoji}`,"leave");
   saveState();
