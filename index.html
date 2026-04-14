@@ -1886,7 +1886,8 @@ function computeAlerts(){
   state.users.filter(u=>u.role==='agent').forEach(u=>{
     // Congés faibles (< 5j restants)
     const used = leaveUsedDays(u.id);
-    const rem = Math.max(0, 25 - used);
+    const quota = getLeaveQuota(u.id);
+    const rem = Math.max(0, quota - used);
     if(rem <= 5){
       alerts.push({level:'danger', icon:'🏖️', msg: u.name + ' — seulement <strong>' + rem + 'j</strong> de congés restants'});
     }
@@ -1901,13 +1902,40 @@ function computeAlerts(){
     }
   });
 
+  // ── Sous-staffing sur les 14 prochains jours ────────────────────────────────
+  const minStaffing = state.minStaffing || {}; // { "Unité 1": 2, ... }
+  const units = [...new Set(state.shifts.map(s=>s.unit))].sort();
+  const seenUnderstaffed = new Set();
+  for(let i=0; i<=13; i++){
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()+i);
+    const di = iso(d);
+    for(const unit of units){
+      const min = minStaffing[unit] || 2; // seuil par défaut : 2 agents/jour
+      const staffed = state.shifts.filter(s=>s.unit===unit && s.date===di).length;
+      const absent = state.leaveRequests.filter(r=>
+        r.status==='approved' && r.from<=di && r.to>=di &&
+        state.users.find(u=>u.id===r.userId && u.unit===unit)
+      ).length;
+      const effective = staffed - absent;
+      if(effective < min && !seenUnderstaffed.has(unit+'_'+di)){
+        seenUnderstaffed.add(unit+'_'+di);
+        const label = i===0 ? "aujourd'hui" : i===1 ? "demain" : "le "+d.toLocaleDateString("fr-FR",{weekday:"short",day:"2-digit",month:"short"});
+        alerts.push({
+          level: effective===0 ? 'danger' : 'warn',
+          icon: '👥',
+          msg: '<strong>' + unit + '</strong> — sous-staffé ' + label
+            + ' : <strong>' + effective + '</strong>/' + min + ' agents minimum'
+        });
+      }
+    }
+  }
+
   // Demandes en attente depuis > 48h
   const cutoff = Date.now() - 48*3600*1000;
   [...state.swapRequests, ...state.leaveRequests, ...state.overtime]
     .filter(r => r.status === 'pending' && r.createdAt)
     .forEach(r => {
       try {
-        // Parse French date "dd/mm/yyyy HH:mm" 
         const parts = r.createdAt.split(' ');
         if(parts.length >= 2){
           const [d,mo,y] = parts[0].split('/');
@@ -2494,6 +2522,26 @@ function viewProfilesDirection(){
   const defaultQ=(state.leaveSettings||{}).defaultQuota||25;
   return `
     <div class="carditem">
+      <h3>👥 Seuils de staffing minimum</h3>
+      <div class="muted">Nombre d'agents minimum par unité et par jour. Une alerte s'affiche si ce seuil n'est pas atteint sur les 14 prochains jours.</div>
+      <div class="hr"></div>
+      <div class="cardlist" style="margin-bottom:12px">
+        ${[...new Set(state.shifts.map(s=>s.unit))].sort().map(unit=>{
+          const min=(state.minStaffing||{})[unit]||2;
+          return `<div class="carditem" style="padding:10px 12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="font-weight:800;font-size:13px">${unit}</div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <input type="number" class="min-staff-input" data-unit="${unit}" value="${min}" min="1" max="20" style="width:60px;padding:7px;border-radius:10px;font-size:13px;text-align:center"/>
+                <span class="muted" style="font-size:11px">agents min</span>
+              </div>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
+      <button class="btn primary" id="btnSaveMinStaff">💾 Enregistrer les seuils</button>
+    </div>
+    <div class="carditem">
       <h3>🏖️ Quotas de congés payés</h3>
       <div class="muted">Configurer le nombre de jours par agent pour cette année.</div>
       <div class="hr"></div>
@@ -2885,6 +2933,15 @@ function attachHandlers(tabId){
 
   if(tabId==="profil_dir"){
     document.querySelectorAll("[data-open-profile]").forEach(btn=>btn.addEventListener("click",()=>openProfileModal(btn.getAttribute("data-open-profile"))));
+    document.getElementById("btnSaveMinStaff")?.addEventListener("click",()=>{
+      state.minStaffing = state.minStaffing || {};
+      document.querySelectorAll(".min-staff-input").forEach(inp=>{
+        const unit = inp.getAttribute("data-unit");
+        const val = parseInt(inp.value||"2", 10);
+        if(!isNaN(val) && val >= 1) state.minStaffing[unit] = val;
+      });
+      saveState(); toast("Seuils de staffing enregistrés ✅"); renderTab("profil_dir");
+    });
     document.getElementById("btnSaveDefaultQuota")?.addEventListener("click",()=>{
       const val=parseInt(document.getElementById("defaultQuotaInput")?.value||"25",10);
       if(isNaN(val)||val<1) return;
