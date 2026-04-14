@@ -260,6 +260,29 @@ textarea{min-height:92px;resize:vertical}
 .notif-item.unread{ background:rgba(79,140,255,.08); border-color:rgba(79,140,255,.3); }
 .notif-item.read{ opacity:.5; background:rgba(255,255,255,.02); }
 
+/* ── Réactions messages ─────────────────────────────────────────────────────*/
+.react-bar{
+  display:flex; gap:4px; margin-top:6px; flex-wrap:wrap;
+  opacity:0; pointer-events:none;
+  transition:opacity .15s;
+}
+.bubble:hover .react-bar{ opacity:1; pointer-events:all; }
+.react-opt{
+  width:28px; height:28px; border-radius:8px; font-size:15px;
+  border:1px solid var(--line); background:rgba(255,255,255,.05);
+  cursor:pointer; display:grid; place-items:center;
+  transition:transform .1s, background .1s;
+}
+.react-opt:hover{ background:rgba(255,255,255,.14); transform:scale(1.2); }
+.react-chips{ display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; }
+.react-chip{
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 8px; border-radius:999px; font-size:12px; font-weight:700;
+  border:1px solid var(--line); background:rgba(255,255,255,.07);
+  cursor:pointer; transition:background .1s;
+}
+.react-chip:hover{ background:rgba(79,140,255,.18); border-color:rgba(79,140,255,.4); }
+
 /* ── Messages épinglés ──────────────────────────────────────────────────────*/
 .pinned-banner{
   display:flex; align-items:flex-start; gap:10px;
@@ -1777,7 +1800,7 @@ function setupShell(){
   const btnNotif=document.getElementById("btnNotif");
   if(state.session.role==="agent"){
     btnNotif.style.display="";
-    updateNotifBell();
+    updateNotifBell(); updateTabBadge();
     btnNotif.onclick=openNotifDrawer;
   } else {
     btnNotif.style.display="none";
@@ -1786,10 +1809,16 @@ function setupShell(){
   document.getElementById("notifBackdrop").addEventListener("click", closeNotifDrawer);
   document.getElementById("btnDrawerClose").addEventListener("click", closeNotifDrawer);
   document.getElementById("btnDrawerMarkAll").addEventListener("click",()=>{
-    markNotifsRead(); updateNotifBell(); renderNotifDrawerContent();
+    markNotifsRead(); updateNotifBell(); updateTabBadge(); renderNotifDrawerContent();
   });
 
   updateHeader();
+}
+
+function updateTabBadge(){
+  const n = agentNotifCount();
+  const base = "EHPAD Staff";
+  document.title = n > 0 ? `(${n}) ${base}` : base;
 }
 
 function updateNotifBell(){
@@ -1847,12 +1876,12 @@ function renderNotifDrawerContent(){
       e.stopPropagation();
       const id=btn.getAttribute("data-del");
       state.notifications=(state.notifications||[]).filter(n=>n.id!==id);
-      saveState(); updateNotifBell(); renderNotifDrawerContent();
+      saveState(); updateNotifBell(); updateTabBadge(); renderNotifDrawerContent();
     });
   });
 
   // Mark as read when drawer is open
-  markNotifsRead(); updateNotifBell();
+  markNotifsRead(); updateNotifBell(); updateTabBadge();
 }
 
 function navigate(tabId){ if(tabId===currentTab) return; navStack.push(currentTab); currentTab=tabId; render(); }
@@ -2469,6 +2498,13 @@ function viewMessagesAgent(){
       <h3>Conversations</h3><div class="muted">Collègues + direction</div><div class="hr"></div>
       <div class="field"><label>Avec</label><select id="chatPeer">${peers.map(p=>`<option value="${p.id}" ${p.id===activeChatPeer?'selected':''}>${p.name}${p.role==="direction"?" (Direction)":""}</option>`).join("")}</select></div>
       <div class="hr"></div>
+      <div style="position:relative;margin-bottom:8px">
+        <input id="msgSearch" placeholder="🔍 Rechercher dans la conversation…" style="padding-left:14px;font-size:12px"/>
+        <button class="iconbtn" id="btnClearSearch" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:8px;display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="msgSearchCount" class="muted" style="font-size:11px;margin-bottom:6px;display:none"></div>
       <div class="chat" id="chat">
         ${msgs.length?msgs.map(m=>bubble(m,m.from===u.id)).join(""):`<div class="chat-empty">${icons.msg}<div>Démarrez la conversation avec ${peer?.name||""}…</div></div>`}
       </div>
@@ -2502,6 +2538,13 @@ function viewMessagesDirection(){
       <h3>Messagerie</h3><div class="muted">Tous les agents</div><div class="hr"></div>
       <div class="field"><label>Agent</label><select id="chatPeerDir">${agents.map(a=>`<option value="${a.id}" ${a.id===activeChatPeerDir?'selected':''}>${a.name} — ${a.unit}</option>`).join("")}</select></div>
       <div class="hr"></div>
+      <div style="position:relative;margin-bottom:8px">
+        <input id="msgSearchDir" placeholder="🔍 Rechercher dans la conversation…" style="padding-left:14px;font-size:12px"/>
+        <button class="iconbtn" id="btnClearSearchDir" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:8px;display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="msgSearchCountDir" class="muted" style="font-size:11px;margin-bottom:6px;display:none"></div>
       <div class="chat" id="chat">
         ${msgs.length?msgs.map(m=>bubble(m,m.from===u.id)).join(""):`<div class="chat-empty">${icons.msg}<div>Démarrez la conversation avec ${peer?.name||""}…</div></div>`}
       </div>
@@ -2512,9 +2555,107 @@ function viewMessagesDirection(){
     </div>`;
 }
 
+function addReaction(msgId, emoji, convoKey){
+  if(!msgId||!convoKey) return;
+  const msgs = state.messages[convoKey];
+  if(!msgs) return;
+  const m = msgs.find(x=>x.id===msgId);
+  if(!m) return;
+  m.reactions = m.reactions||{};
+  m.reactions[emoji] = (m.reactions[emoji]||0) + 1;
+  saveState();
+  // Re-render just the chat area
+  const chat = document.getElementById("chat");
+  if(chat){
+    const meId = state.session?.userId;
+    chat.innerHTML = msgs.map(x=>bubble(x, x.from===meId)).join("");
+    bindReactions(convoKey);
+  }
+}
+
+function bindReactions(convoKey){
+  document.querySelectorAll(".react-opt, .react-chip").forEach(btn=>{
+    btn.addEventListener("click", e=>{
+      e.stopPropagation();
+      const msgId = btn.getAttribute("data-msg-id");
+      const emoji = btn.getAttribute("data-emoji");
+      addReaction(msgId, emoji, convoKey);
+    });
+  });
+}
+
+function bindMsgSearch(inputId, clearId, countId){
+  const input = document.getElementById(inputId);
+  const clearBtn = document.getElementById(clearId);
+  const countEl = document.getElementById(countId);
+  if(!input) return;
+
+  function doSearch(){
+    const q = input.value.trim().toLowerCase();
+    const bubbles = document.querySelectorAll("#chat .bubble");
+    clearBtn.style.display = q ? "" : "none";
+    let matches = 0;
+    bubbles.forEach(b=>{
+      const text = b.textContent.toLowerCase();
+      const match = q && text.includes(q);
+      if(q){
+        b.style.opacity = match ? "1" : "0.25";
+        if(match){
+          matches++;
+          // Highlight
+          const msgDiv = b.querySelector("div:first-child");
+          if(msgDiv && msgDiv.getAttribute("data-orig")===null){
+            msgDiv.setAttribute("data-orig", msgDiv.innerHTML);
+          }
+          if(msgDiv){
+            const orig = msgDiv.getAttribute("data-orig")||msgDiv.textContent;
+            const highlighted = orig.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\]/g,'\$&')})`, 'gi'),
+              '<mark style="background:rgba(255,196,0,.45);color:inherit;border-radius:3px;padding:0 2px">$1</mark>');
+            msgDiv.innerHTML = highlighted;
+          }
+        } else {
+          const msgDiv = b.querySelector("div:first-child");
+          if(msgDiv && msgDiv.getAttribute("data-orig")) msgDiv.innerHTML = msgDiv.getAttribute("data-orig");
+        }
+      } else {
+        b.style.opacity = "1";
+        const msgDiv = b.querySelector("div:first-child");
+        if(msgDiv && msgDiv.getAttribute("data-orig")) msgDiv.innerHTML = msgDiv.getAttribute("data-orig");
+      }
+    });
+    if(countEl){
+      countEl.style.display = q ? "" : "none";
+      countEl.textContent = q ? `${matches} résultat(s) pour "${input.value.trim()}"` : "";
+    }
+  }
+
+  input.addEventListener("input", doSearch);
+  clearBtn?.addEventListener("click",()=>{ input.value=""; doSearch(); input.focus(); });
+}
+
+const REACTIONS = ["👍","❤️","😂","👏","✅","🙏"];
+
 function bubble(m,isMe){
-  if(m.type==="swap") return `<div class="bubble ${isMe?'me':''}"><div style="font-weight:850">📅 Proposition d'échange</div><div style="margin-top:6px;font-size:13px">${m.summary}</div><div class="time">${m.time}</div></div>`;
-  return `<div class="bubble ${isMe?'me':''}"><div>${escapeHtml(m.text)}</div><div class="time">${m.time}</div></div>`;
+  const reactions = m.reactions||{};
+  const reactHtml = Object.entries(reactions).filter(([,v])=>v>0).map(([emoji,count])=>
+    `<button class="react-chip" data-msg-id="${m.id||""}" data-emoji="${emoji}">${emoji} ${count}</button>`
+  ).join("");
+  const reactBar = `<div class="react-bar">
+    ${REACTIONS.map(e=>`<button class="react-opt" data-msg-id="${m.id||""}" data-emoji="${e}">${e}</button>`).join("")}
+  </div>`;
+  if(m.type==="swap") return `<div class="bubble ${isMe?'me':''}" data-msg-id="${m.id||""}">
+    <div style="font-weight:850">📅 Proposition d'échange</div>
+    <div style="margin-top:6px;font-size:13px">${m.summary}</div>
+    <div class="time">${m.time}</div>
+    ${reactHtml?`<div class="react-chips">${reactHtml}</div>`:""}
+    ${reactBar}
+  </div>`;
+  return `<div class="bubble ${isMe?'me':''}" data-msg-id="${m.id||""}">
+    <div>${escapeHtml(m.text)}</div>
+    <div class="time">${m.time}</div>
+    ${reactHtml?`<div class="react-chips">${reactHtml}</div>`:""}
+    ${reactBar}
+  </div>`;
 }
 
 // ── Profil agent ──────────────────────────────────────────────────────────────
@@ -3048,6 +3189,9 @@ function attachHandlers(tabId){
     document.getElementById("btnSendMsg")?.addEventListener("click",sendChatMessage);
     document.getElementById("chatInput")?.addEventListener("keydown",e=>{ if(e.key==="Enter") sendChatMessage(); });
     document.getElementById("btnSwapInChat")?.addEventListener("click",openSwapModalFromChat);
+    bindMsgSearch("msgSearch","btnClearSearch","msgSearchCount");
+    const u2=me(), peer2=state.users.find(x=>x.id===activeChatPeer);
+    if(peer2) bindReactions(convo(u2.id,peer2.id));
     setTimeout(scrollChatBottom,50);
   }
 
@@ -3057,10 +3201,13 @@ function attachHandlers(tabId){
       const u=me(), peerId=document.getElementById("chatPeerDir")?.value, input=document.getElementById("chatInputDir");
       const text=(input?.value||"").trim(); if(!text||!peerId) return;
       const key=convo(u.id,peerId); state.messages[key]=state.messages[key]||[];
-      state.messages[key].push({from:u.id,text,time:nowTime()}); saveState(); input.value=""; renderTab("messages_dir"); setTimeout(scrollChatBottom,50);
+      state.messages[key].push({id:"m_"+Math.random().toString(16).slice(2),from:u.id,text,time:nowTime()}); saveState(); input.value=""; renderTab("messages_dir"); setTimeout(scrollChatBottom,50);
     }
     document.getElementById("btnSendMsgDir")?.addEventListener("click",sendDirMsg);
     document.getElementById("chatInputDir")?.addEventListener("keydown",e=>{ if(e.key==="Enter") sendDirMsg(); });
+    bindMsgSearch("msgSearchDir","btnClearSearchDir","msgSearchCountDir");
+    const ud=me(), peerd=state.users.find(x=>x.id===activeChatPeerDir);
+    if(peerd) bindReactions(convo(ud.id,peerd.id));
 
     // Épingler une annonce
     document.getElementById("btnPinMsg")?.addEventListener("click",()=>{
@@ -3090,14 +3237,14 @@ function attachHandlers(tabId){
     document.getElementById("btnClearNotifs")?.addEventListener("click",()=>{
       const uid=state.session.userId;
       state.notifications=(state.notifications||[]).filter(n=>n.userId!==uid);
-      saveState(); updateNotifBell(); renderTab("profil");
+      saveState(); updateNotifBell(); updateTabBadge(); renderTab("profil");
     });
     document.querySelectorAll(".notif-item-del").forEach(btn=>{
       btn.addEventListener("click",(e)=>{
         e.stopPropagation();
         const id=btn.getAttribute("data-del");
         state.notifications=(state.notifications||[]).filter(n=>n.id!==id);
-        saveState(); updateNotifBell(); renderTab("profil");
+        saveState(); updateNotifBell(); updateTabBadge(); renderTab("profil");
       });
     });
     document.getElementById("btnSaveProfile")?.addEventListener("click",()=>{
@@ -3232,7 +3379,7 @@ function sendChatMessage(){
   const u=me(), peerId=document.getElementById("chatPeer").value, input=document.getElementById("chatInput"), text=(input.value||"").trim();
   if(!text) return;
   const key=convo(u.id,peerId); state.messages[key]=state.messages[key]||[];
-  state.messages[key].push({from:u.id,text,time:nowTime()}); saveState(); input.value=""; renderTab("messages"); setTimeout(scrollChatBottom,50);
+  state.messages[key].push({id:"m_"+Math.random().toString(16).slice(2),from:u.id,text,time:nowTime()}); saveState(); input.value=""; renderTab("messages"); setTimeout(scrollChatBottom,50);
 }
 function openSwapModalFromChat(){
   const u=me(), peerId=document.getElementById("chatPeer").value;
@@ -3253,7 +3400,7 @@ function openSwapModalFromChat(){
     state.swapRequests.push(req);
     const key=convo(u.id,peerId); state.messages[key]=state.messages[key]||[];
     const my=state.shifts.find(s=>s.id===myId), pe=state.shifts.find(s=>s.id===peerShiftId);
-    state.messages[key].push({from:u.id,type:"swap",summary:`${fmtDate(my.date)} ${my.start}–${my.end} ↔ ${fmtDate(pe.date)} ${pe.start}–${pe.end}${note?" • "+note:""}`,time:nowTime()});
+    state.messages[key].push({id:"m_"+Math.random().toString(16).slice(2),from:u.id,type:"swap",summary:`${fmtDate(my.date)} ${my.start}–${my.end} ↔ ${fmtDate(pe.date)} ${pe.start}–${pe.end}${note?" • "+note:""}`,time:nowTime()});
     saveState(); closeModal(); toast("Échange envoyé ✅"); renderTab("messages"); setTimeout(scrollChatBottom,50);
   };
 }
