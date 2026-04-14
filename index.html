@@ -1022,6 +1022,7 @@ const icons = {
   home:      `<svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 22V12h6v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`,
   plus:      `<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
   clock:     `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+  chart:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`,
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1709,7 +1710,7 @@ const tabsAgent=[
 const tabsDirection=[
   {id:"dashboard_dir",label:"Accueil", icon:"home"},
   {id:"validations",  label:"Valider", icon:"check"},
-  {id:"messages_dir", label:"Messages",icon:"msg"},
+  {id:"stats_dir",    label:"Stats",   icon:"chart"},
   {id:"profil_dir",   label:"Profils", icon:"heart"},
   {id:"compte",       label:"Compte",  icon:"account"},
 ];
@@ -1949,7 +1950,7 @@ function navigate(tabId){ if(tabId===currentTab) return; navStack.push(currentTa
 function updateHeader(){
   const u2=state.users.find(u=>u.id===state.session.userId);
   document.getElementById("appSubtitle").textContent=`${u2?.name||""} • ${state.session.role==="direction"?"Direction":"Agent"}`;
-  const map={planning:"Planning",echanges:"Échanges",messages:"Messagerie",profil:"Profil & santé",compte:"Compte",dashboard_dir:"Accueil",validations:"Validations",messages_dir:"Messagerie",profil_dir:"Profils & santé"};
+  const map={planning:"Planning",echanges:"Échanges",messages:"Messagerie",profil:"Profil & santé",compte:"Compte",dashboard_dir:"Accueil",validations:"Validations",messages_dir:"Messagerie",profil_dir:"Profils & santé",stats_dir:"📊 Statistiques annuelles"};
   document.getElementById("appTitle").textContent=map[currentTab]||"EHPAD";
 }
 function renderTab(tabId){
@@ -1966,6 +1967,7 @@ function renderTab(tabId){
     if(tabId==="dashboard_dir") main.innerHTML=viewDashboard();
     else if(tabId==="validations")  main.innerHTML=viewValidations();
     else if(tabId==="messages_dir") main.innerHTML=viewMessagesDirection();
+    else if(tabId==="stats_dir")    main.innerHTML=viewStatsAnnuel();
     else if(tabId==="profil_dir")   main.innerHTML=viewProfilesDirection();
     else if(tabId==="compte")       main.innerHTML=viewAccount();
   }
@@ -2883,6 +2885,225 @@ function viewProfilesDirection(){
         }).join("")}
       </div>
     </div>`;
+}
+
+// ── Stats annuelles ──────────────────────────────────────────────────────────
+function viewStatsAnnuel(){
+  const year = new Date().getFullYear();
+  const yearStr = year.toString();
+  const agents = state.users.filter(u=>u.role==="agent");
+  const units = [...new Set(state.shifts.map(s=>s.unit))].sort();
+  const months = Array.from({length:12},(_,i)=>i);
+  const monthLabels = months.map(m=>new Date(year,m,1).toLocaleDateString("fr-FR",{month:"short"}));
+
+  // ── KPIs globaux ──────────────────────────────────────────────────────────────
+  const totalShifts = state.shifts.filter(s=>s.date.startsWith(yearStr)).length;
+  const totalLeaveDays = state.leaveRequests
+    .filter(r=>r.status==="approved" && r.from?.startsWith(yearStr))
+    .reduce((a,r)=>a+daysBetween(r.from,r.to),0);
+  const totalOTMins = state.overtime
+    .filter(o=>o.status==="approved" && o.date?.startsWith(yearStr))
+    .reduce((a,o)=>a+o.minutes,0);
+  const pendingTotal = pendingCount();
+  const absRate = totalShifts > 0 ? Math.round(totalLeaveDays / (agents.length * 365) * 100) : 0;
+
+  // ── Congés par mois (barres) ──────────────────────────────────────────────────
+  const leaveByMonth = months.map(m=>{
+    const ym = `${year}-${String(m+1).padStart(2,"0")}`;
+    return state.leaveRequests
+      .filter(r=>r.status==="approved" && r.from?.startsWith(ym))
+      .reduce((a,r)=>a+daysBetween(r.from,r.to),0);
+  });
+  const maxLeave = Math.max(...leaveByMonth, 1);
+
+  // ── Heures supp par mois ──────────────────────────────────────────────────────
+  const otByMonth = months.map(m=>{
+    const ym = `${year}-${String(m+1).padStart(2,"0")}`;
+    return Math.round(state.overtime
+      .filter(o=>o.status==="approved" && o.date?.startsWith(ym))
+      .reduce((a,o)=>a+o.minutes,0) / 60 * 10) / 10;
+  });
+  const maxOT = Math.max(...otByMonth, 1);
+
+  // ── Shifts par type ──────────────────────────────────────────────────────────
+  const shiftTypes = ["Matin","Soir","Nuit","Journée"];
+  const shiftTypeColors = {Matin:"#4f8cff",Soir:"#ff9f43",Nuit:"#a855f7",Journée:"#32d583"};
+  const shiftByCat = shiftTypes.map(t=>({
+    label:t,
+    count:state.shifts.filter(s=>s.date.startsWith(yearStr)&&s.label===t).length,
+    color:shiftTypeColors[t]
+  }));
+  const totalCat = shiftByCat.reduce((a,x)=>a+x.count,0)||1;
+
+  // ── Top agents heures supp ────────────────────────────────────────────────────
+  const topOT = agents.map(u=>({
+    name:u.name.split(" ")[0],
+    unit:u.unit,
+    mins:state.overtime.filter(o=>o.userId===u.id&&o.status==="approved"&&o.date?.startsWith(yearStr)).reduce((a,o)=>a+o.minutes,0)
+  })).sort((a,b)=>b.mins-a.mins).slice(0,5);
+  const maxTopOT = Math.max(...topOT.map(x=>x.mins),1);
+
+  // ── Congés par agent ──────────────────────────────────────────────────────────
+  const leaveByAgent = agents.map(u=>({
+    name:u.name.split(" ")[0],
+    unit:u.unit,
+    days:leaveUsedDays(u.id),
+    quota:getLeaveQuota(u.id)
+  })).sort((a,b)=>b.days-a.days);
+
+  // ── Échanges stats ────────────────────────────────────────────────────────────
+  const swapsTotal = state.swapRequests.filter(r=>r.createdAt).length;
+  const swapsApproved = state.swapRequests.filter(r=>r.status==="approved").length;
+  const swapsRefused = state.swapRequests.filter(r=>r.status==="refused").length;
+
+  function bar(val, max, color, height=24){
+    const pct = Math.round(val/max*100);
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-size:10px;font-weight:800;color:${color}">${val}</div>
+      <div style="width:100%;height:${height}px;border-radius:6px;background:rgba(255,255,255,.06);display:flex;align-items:flex-end;overflow:hidden">
+        <div style="width:100%;height:${pct}%;background:${color};border-radius:6px;transition:height .4s;min-height:${val>0?3:0}px"></div>
+      </div>
+    </div>`;
+  }
+
+  return `
+  <div class="carditem">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0">Année ${year}</h3>
+      <span class="badge">${agents.length} agents</span>
+    </div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(79,140,255,.18);color:#4f8cff">${icons.calendar}</div>
+        <div class="kpi-val">${totalShifts}</div>
+        <div class="kpi-label">Shifts planifiés</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(50,213,131,.15);color:#32d583">${icons.heart}</div>
+        <div class="kpi-val">${totalLeaveDays}</div>
+        <div class="kpi-label">Jours de congés</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(168,85,247,.18);color:#a855f7">${icons.clock}</div>
+        <div class="kpi-val">${fmtHours(totalOTMins)}</div>
+        <div class="kpi-label">Heures supp</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:rgba(${pendingTotal>0?"255,79,109":"50,213,131"},.18);color:${pendingTotal>0?"#ff4f6d":"#32d583"}">${icons.check}</div>
+        <div class="kpi-val">${pendingTotal}</div>
+        <div class="kpi-label">En attente</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="carditem">
+    <h3>🏖️ Congés approuvés par mois</h3>
+    <div class="muted" style="margin-bottom:12px">En jours · ${year}</div>
+    <div style="display:flex;gap:4px;align-items:flex-end;height:80px">
+      ${leaveByMonth.map((v,i)=>bar(v,maxLeave,"#32d583",80)
+        .replace('<div style="flex:1',`<div title="${monthLabels[i]}: ${v}j" style="flex:1`)
+      ).join("")}
+    </div>
+    <div style="display:flex;gap:4px;margin-top:4px">
+      ${monthLabels.map(l=>`<div style="flex:1;text-align:center;font-size:9px;color:var(--muted)">${l}</div>`).join("")}
+    </div>
+  </div>
+
+  <div class="carditem">
+    <h3>⏱️ Heures supp par mois</h3>
+    <div class="muted" style="margin-bottom:12px">En heures · ${year}</div>
+    <div style="display:flex;gap:4px;align-items:flex-end;height:80px">
+      ${otByMonth.map((v,i)=>bar(v,maxOT,"#a855f7",80)
+        .replace('<div style="flex:1',`<div title="${monthLabels[i]}: ${v}h" style="flex:1`)
+      ).join("")}
+    </div>
+    <div style="display:flex;gap:4px;margin-top:4px">
+      ${monthLabels.map(l=>`<div style="flex:1;text-align:center;font-size:9px;color:var(--muted)">${l}</div>`).join("")}
+    </div>
+  </div>
+
+  <div class="carditem">
+    <h3>🔄 Répartition des shifts</h3>
+    <div class="muted" style="margin-bottom:14px">Par type · ${year}</div>
+    ${shiftByCat.map(x=>{
+      const pct = Math.round(x.count/totalCat*100);
+      return `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:750">${x.label}</span>
+          <span style="font-size:12px;color:var(--muted)">${x.count} shifts · ${pct}%</span>
+        </div>
+        <div style="height:8px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${x.color};border-radius:999px;transition:width .5s"></div>
+        </div>
+      </div>`;
+    }).join("")}
+  </div>
+
+  <div class="carditem">
+    <h3>🏆 Top heures supp</h3>
+    <div class="muted" style="margin-bottom:12px">Agents avec le plus d'heures supp approuvées · ${year}</div>
+    ${topOT.filter(x=>x.mins>0).length ? topOT.filter(x=>x.mins>0).map((x,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:22px;font-size:13px;font-weight:900;color:var(--muted);text-align:center">${i+1}</div>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="font-size:13px;font-weight:750">${x.name}</span>
+            <span style="font-size:12px;color:#a855f7;font-weight:800">${fmtHours(x.mins)}</span>
+          </div>
+          <div style="height:6px;border-radius:999px;background:rgba(255,255,255,.07)">
+            <div style="height:100%;width:${Math.round(x.mins/maxTopOT*100)}%;background:#a855f7;border-radius:999px"></div>
+          </div>
+        </div>
+      </div>`).join("") : `<div class="muted">Aucune heure supp approuvée cette année.</div>`}
+  </div>
+
+  <div class="carditem">
+    <h3>🏖️ Congés par agent</h3>
+    <div class="muted" style="margin-bottom:12px">Congés payés approuvés + en attente · ${year}</div>
+    ${leaveByAgent.map(x=>{
+      const pct = Math.min(100,Math.round(x.days/x.quota*100));
+      const color = x.days>=x.quota?"#ff4f6d":x.days>=x.quota*0.8?"#ff9f43":"#32d583";
+      return `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:12px;font-weight:750">${x.name}</span>
+          <span style="font-size:11px;color:var(--muted)">${x.days}j / ${x.quota}j</span>
+        </div>
+        <div style="height:6px;border-radius:999px;background:rgba(255,255,255,.07)">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:999px"></div>
+        </div>
+      </div>`;
+    }).join("")}
+  </div>
+
+  <div class="carditem">
+    <h3>🔄 Échanges de shifts</h3>
+    <div class="muted" style="margin-bottom:12px">Bilan des demandes d'échange</div>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-val">${swapsTotal}</div>
+        <div class="kpi-label">Total demandés</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val" style="color:#32d583">${swapsApproved}</div>
+        <div class="kpi-label">Approuvés</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val" style="color:#ff4f6d">${swapsRefused}</div>
+        <div class="kpi-label">Refusés</div>
+      </div>
+    </div>
+    ${swapsTotal>0?`<div style="margin-top:12px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Taux d'approbation</div>
+      <div style="height:8px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;display:flex">
+        <div style="height:100%;width:${Math.round(swapsApproved/swapsTotal*100)}%;background:#32d583"></div>
+        <div style="height:100%;width:${Math.round(swapsRefused/swapsTotal*100)}%;background:#ff4f6d"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px">
+        <span style="font-size:10px;color:#32d583">${Math.round(swapsApproved/swapsTotal*100)}% approuvés</span>
+        <span style="font-size:10px;color:#ff4f6d">${Math.round(swapsRefused/swapsTotal*100)}% refusés</span>
+      </div>
+    </div>`:""}
+  </div>`;
 }
 
 // ── Validations ───────────────────────────────────────────────────────────────
