@@ -1045,27 +1045,49 @@ function daysBetween(from, to){
   const a = new Date(from+"T00:00:00"), b = new Date(to+"T00:00:00");
   return Math.max(1, Math.round((b-a)/86400000)+1);
 }
+function getLeaveQuota(userId){
+  const s = state.leaveSettings || {};
+  return (s.perUser && s.perUser[userId]) ? s.perUser[userId] : (s.defaultQuota || 25);
+}
 function leaveUsedDays(userId){
   const year = new Date().getFullYear().toString();
   return state.leaveRequests
-    .filter(r=>r.userId===userId && r.status==="approved" && r.type==="Cong\u00e9s pay\u00e9s" && r.from && r.from.startsWith(year))
+    .filter(r=>r.userId===userId && (r.status==="approved"||r.status==="pending") && r.type==="Congés payés" && r.from && r.from.startsWith(year))
+    .reduce((acc,r)=>acc+daysBetween(r.from,r.to),0);
+}
+function leavePendingDays(userId){
+  const year = new Date().getFullYear().toString();
+  return state.leaveRequests
+    .filter(r=>r.userId===userId && r.status==="pending" && r.type==="Congés payés" && r.from && r.from.startsWith(year))
     .reduce((acc,r)=>acc+daysBetween(r.from,r.to),0);
 }
 function leaveRemainingBar(userId, label){
-  const used = leaveUsedDays(userId);
-  const total = 25;
-  const remaining = Math.max(0, total - used);
-  const pct = Math.min(100, Math.round(used/total*100));
-  const color = remaining <= 5 ? '#ff4f6d' : remaining <= 10 ? '#ff9f43' : '#32d583';
-  return '<div style="margin-bottom:14px">'
-    + (label ? '<div style="font-size:12px;color:var(--muted);margin-bottom:5px">' + label + '</div>' : '')
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'
-    + '<span style="font-weight:900;font-size:18px;color:' + color + '">' + remaining + 'j</span>'
-    + '<span style="font-size:12px;color:var(--muted)">' + used + 'j pris / ' + total + 'j</span>'
-    + '</div>'
-    + '<div style="height:8px;border-radius:999px;background:rgba(255,255,255,.08)">'
-    + '<div style="height:100%;border-radius:999px;width:' + pct + '%;background:' + color + ';transition:width .4s"></div>'
-    + '</div></div>';
+  const quota   = getLeaveQuota(userId);
+  const used    = leaveUsedDays(userId);
+  const pending = leavePendingDays(userId);
+  const approved = used - pending;
+  const remaining = Math.max(0, quota - used);
+  const pctApproved = Math.min(100, Math.round(approved/quota*100));
+  const pctPending  = Math.min(100 - pctApproved, Math.round(pending/quota*100));
+  const color = remaining <= 3 ? "#ff4f6d" : remaining <= 7 ? "#ff9f43" : "#32d583";
+  return `<div style="margin:10px 0 14px">
+    ${label?`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">${label}</div>`:""}
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+      <div style="display:flex;align-items:baseline;gap:6px">
+        <span style="font-weight:900;font-size:22px;color:${color}">${remaining}j</span>
+        <span style="font-size:12px;color:var(--muted)">restants</span>
+      </div>
+      <span style="font-size:11px;color:var(--muted)">${approved}j pris · ${pending>0?`<span style="color:#ff9f43">${pending}j en attente</span> · `:""}${quota}j quota</span>
+    </div>
+    <div style="height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;position:relative">
+      <div style="position:absolute;left:0;top:0;height:100%;width:${pctApproved}%;background:var(--primary);border-radius:999px;transition:width .4s"></div>
+      <div style="position:absolute;left:${pctApproved}%;top:0;height:100%;width:${pctPending}%;background:#ff9f43;border-radius:999px;transition:width .4s"></div>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:5px">
+      <span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:999px;background:var(--primary);display:inline-block"></span>Approuvés</span>
+      ${pending>0?`<span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:999px;background:#ff9f43;display:inline-block"></span>En attente</span>`:""}
+    </div>
+  </div>`;
 }
 
 function avatarColor(id){ const idx=["u1","u2","u3","d1"].indexOf(id); return AVATAR_COLORS[idx>=0?idx:0]; }
@@ -1616,7 +1638,8 @@ function loadState(){
     ],
   };
 
-  return {session:{role:"agent",userId:"u1"},users,shifts,swapRequests,leaveRequests,overtime,profiles,messages,ui:{}};
+  const leaveSettings={defaultQuota:25,perUser:{}};
+  return {session:{role:"agent",userId:"u1"},users,shifts,swapRequests,leaveRequests,overtime,profiles,messages,leaveSettings,ui:{}};
 }
 
 function saveState(){ localStorage.setItem(LS_KEY,JSON.stringify(state)); }
@@ -2424,7 +2447,47 @@ function viewProfileAgent(){
 
 function viewProfilesDirection(){
   const agents=state.users.filter(u=>u.role==="agent");
+  const defaultQ=(state.leaveSettings||{}).defaultQuota||25;
   return `
+    <div class="carditem">
+      <h3>🏖️ Quotas de congés payés</h3>
+      <div class="muted">Configurer le nombre de jours par agent pour cette année.</div>
+      <div class="hr"></div>
+      <div class="field" style="margin-bottom:14px">
+        <label>Quota par défaut (tous les agents)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="defaultQuotaInput" value="${defaultQ}" min="1" max="60" style="width:90px;flex-shrink:0"/>
+          <span class="muted" style="font-size:12px">jours / an</span>
+          <button class="btn small primary" id="btnSaveDefaultQuota" style="margin:0">Appliquer à tous</button>
+        </div>
+      </div>
+      <div class="section-title" style="margin-bottom:8px">Quotas individuels</div>
+      <div class="cardlist">
+        ${agents.map(a=>{
+          const q=getLeaveQuota(a.id);
+          const used=leaveUsedDays(a.id);
+          const pending=leavePendingDays(a.id);
+          const remaining=Math.max(0,q-used);
+          const color=remaining<=3?"var(--danger)":remaining<=7?"#ff9f43":"var(--success)";
+          return `<div class="carditem" style="padding:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+                <div style="width:34px;height:34px;border-radius:11px;background:${avatarColor(a.id)};display:grid;place-items:center;font-weight:900;font-size:12px;flex-shrink:0">${avatarInitials(a.name)}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:850;font-size:13px">${a.name}</div>
+                  <div style="font-size:11px;color:var(--muted)">${a.unit} · <span style="color:${color};font-weight:700">${remaining}j restants</span>${pending>0?` · <span style="color:#ff9f43">${pending}j en attente</span>`:""}</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                <input type="number" class="agent-quota-input" data-uid="${a.id}" value="${q}" min="1" max="60" style="width:68px;padding:8px;border-radius:10px;font-size:13px;text-align:center"/>
+                <span class="muted" style="font-size:11px">j</span>
+              </div>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
+      <button class="btn primary" id="btnSaveAllQuotas" style="margin-top:12px">💾 Enregistrer les quotas</button>
+    </div>
     <div class="carditem">
       <h3>Profils & santé</h3><div class="muted">Lecture seule • accès réservé à la direction</div><div class="hr"></div>
       <div class="cardlist">
@@ -2758,6 +2821,29 @@ function attachHandlers(tabId){
 
   if(tabId==="profil_dir"){
     document.querySelectorAll("[data-open-profile]").forEach(btn=>btn.addEventListener("click",()=>openProfileModal(btn.getAttribute("data-open-profile"))));
+    document.getElementById("btnSaveDefaultQuota")?.addEventListener("click",()=>{
+      const val=parseInt(document.getElementById("defaultQuotaInput")?.value||"25",10);
+      if(isNaN(val)||val<1) return;
+      state.leaveSettings=state.leaveSettings||{perUser:{}};
+      state.leaveSettings.defaultQuota=val;
+      // Apply to all agents without individual override
+      state.users.filter(u=>u.role==="agent").forEach(u=>{
+        if(state.leaveSettings.perUser[u.id]===undefined||state.leaveSettings.perUser[u.id]===state.leaveSettings.defaultQuota){
+          delete state.leaveSettings.perUser[u.id];
+        }
+      });
+      saveState(); toast("Quota par défaut : "+val+"j appliqué ✅"); renderTab("profil_dir");
+    });
+    document.getElementById("btnSaveAllQuotas")?.addEventListener("click",()=>{
+      state.leaveSettings=state.leaveSettings||{perUser:{}};
+      state.leaveSettings.perUser=state.leaveSettings.perUser||{};
+      document.querySelectorAll(".agent-quota-input").forEach(inp=>{
+        const uid=inp.getAttribute("data-uid");
+        const val=parseInt(inp.value||"25",10);
+        if(!isNaN(val)&&val>=1) state.leaveSettings.perUser[uid]=val;
+      });
+      saveState(); toast("Quotas enregistrés ✅"); renderTab("profil_dir");
+    });
   }
 
   if(tabId==="validations") attachValidationBtns();
