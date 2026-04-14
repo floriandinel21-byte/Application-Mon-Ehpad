@@ -1748,32 +1748,32 @@ function checkShiftReminders(){
   const now = new Date();
   const todayIso = iso(now);
   const tomorrowIso = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate()+1));
+  const hour = now.getHours();
+  const nowMins = hour*60+now.getMinutes();
 
   const reminded = JSON.parse(localStorage.getItem(REMINDER_KEY)||'{}');
 
-  // Rappel pour aujourd'hui (si shift dans moins de 2h)
+  // ── Rappel 1h avant — uniquement si le shift commence après 8h ──────────────
   const todayShift = state.shifts.find(s=>s.userId===uid && s.date===todayIso);
   if(todayShift){
-    const [h,m] = todayShift.start.split(':').map(Number);
-    const shiftMins = h*60+m;
-    const nowMins = now.getHours()*60+now.getMinutes();
+    const [sh,sm] = todayShift.start.split(':').map(Number);
+    const shiftMins = sh*60+sm;
     const diff = shiftMins - nowMins;
-    const remKey = `today_${todayIso}_${todayShift.id}`;
-    if(diff > 0 && diff <= 120 && !reminded[remKey]){
+    const remKey = `h1_${todayIso}_${todayShift.id}`;
+    // Seulement si shift après 8h et on est dans la fenêtre 60-70min avant
+    if(sh >= 8 && diff > 0 && diff <= 60 && !reminded[remKey]){
       reminded[remKey] = true;
       localStorage.setItem(REMINDER_KEY, JSON.stringify(reminded));
-      const label = diff < 60 ? `dans ${diff} min` : `dans ${Math.round(diff/60)}h`;
       pushNotif(
-        `⏰ Shift ${todayShift.label} ${label}`,
+        `⏰ Shift dans 1h — ${todayShift.label}`,
         `${todayShift.start}–${todayShift.end} · ${todayShift.unit}`
       );
     }
   }
 
-  // Rappel la veille (entre 18h et 23h)
+  // ── Rappel la veille entre 18h et 20h ──────────────────────────────────────
   const tomorrowShift = state.shifts.find(s=>s.userId===uid && s.date===tomorrowIso);
-  const hour = now.getHours();
-  if(tomorrowShift && hour >= 18 && hour < 23){
+  if(tomorrowShift && hour >= 18 && hour < 20){
     const remKey = `eve_${tomorrowIso}_${tomorrowShift.id}`;
     if(!reminded[remKey]){
       reminded[remKey] = true;
