@@ -2119,6 +2119,65 @@ function quickOTCard(r){ return `<div class="carditem">
   </div></div>`; }
 
 // ── Planning agent ────────────────────────────────────────────────────────────
+// ── Prochain shift ───────────────────────────────────────────────────────────
+function getNextShift(userId){
+  const todayIso = iso(new Date());
+  return state.shifts
+    .filter(s => s.userId === userId && s.date >= todayIso)
+    .sort((a,b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start))[0] || null;
+}
+
+function countdownLabel(shiftIso, startTime){
+  const now = new Date();
+  const todayIso = iso(now);
+  const tomorrowIso = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate()+1));
+  if(shiftIso === todayIso){
+    const [h,m] = startTime.split(":").map(Number);
+    const shiftMins = h*60+m;
+    const nowMins = now.getHours()*60+now.getMinutes();
+    const diff = shiftMins - nowMins;
+    if(diff <= 0) return "En cours 🟢";
+    if(diff < 60) return `Dans ${diff} min ⏳`;
+    return `Aujourd'hui à ${startTime} ⏰`;
+  }
+  if(shiftIso === tomorrowIso) return `Demain à ${startTime} 🌅`;
+  const days = Math.round((new Date(shiftIso+"T00:00:00") - new Date(todayIso+"T00:00:00")) / 86400000);
+  return `Dans ${days} jours`;
+}
+
+function renderNextShiftCard(userId){
+  const s = getNextShift(userId);
+  if(!s) return `<div class="carditem next-shift-card" style="text-align:center;padding:18px 14px">
+    <div style="font-size:22px;margin-bottom:6px">🎉</div>
+    <div style="font-weight:800;font-size:14px">Aucun shift à venir</div>
+    <div class="muted" style="margin-top:4px;font-size:12px">Profite de ton repos !</div>
+  </div>`;
+
+  const shiftColors={Matin:"rgba(79,140,255,.18)",Soir:"rgba(255,159,67,.18)",Nuit:"rgba(168,85,247,.18)",Journée:"rgba(50,213,131,.15)"};
+  const shiftBorders={Matin:"rgba(79,140,255,.5)",Soir:"rgba(255,159,67,.5)",Nuit:"rgba(168,85,247,.5)",Journée:"rgba(50,213,131,.5)"};
+  const shiftIcons={Matin:"🌤️",Soir:"🌆",Nuit:"🌙",Journée:"☀️"};
+  const bg = shiftColors[s.label]||"rgba(79,140,255,.12)";
+  const border = shiftBorders[s.label]||"rgba(79,140,255,.4)";
+  const icon = shiftIcons[s.label]||"📅";
+  const dateLabel = new Date(s.date+"T00:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long"});
+  const countdown = countdownLabel(s.date, s.start);
+
+  return `<div class="carditem next-shift-card" style="background:${bg};border-color:${border};padding:16px">
+    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px">
+      <div>
+        <div class="muted" style="font-size:11px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.6px">Prochain shift</div>
+        <div style="font-size:22px;font-weight:900;line-height:1.1">${icon} ${s.label}</div>
+        <div style="font-size:13px;margin-top:6px;font-weight:700">${s.start} – ${s.end}</div>
+        <div class="muted" style="font-size:12px;margin-top:3px">${capitalize(dateLabel)}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:12px;font-weight:800;padding:6px 12px;border-radius:999px;background:rgba(0,0,0,.15);white-space:nowrap">${countdown}</div>
+        <div class="muted" style="font-size:11px;margin-top:8px">${s.unit}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function viewPlanningAgent(){
   const u=me();
   state.ui=state.ui||{};
@@ -2132,6 +2191,7 @@ function viewPlanningAgent(){
   const pct=Math.min(100,Math.round(totalMins/contractMins*100));
   const now=new Date(), monthName=now.toLocaleDateString("fr-FR",{month:"long"});
   return `
+    ${renderNextShiftCard(u.id)}
     <div class="carditem">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:4px">
         <h3 style="margin:0">Planning</h3>
