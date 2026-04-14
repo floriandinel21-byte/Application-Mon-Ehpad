@@ -252,6 +252,23 @@ textarea{min-height:92px;resize:vertical}
 .notif-item.unread{ background:rgba(79,140,255,.08); border-color:rgba(79,140,255,.3); }
 .notif-item.read{ opacity:.5; background:rgba(255,255,255,.02); }
 
+/* ── Messages épinglés ──────────────────────────────────────────────────────*/
+.pinned-banner{
+  display:flex; align-items:flex-start; gap:10px;
+  padding:12px 14px; border-radius:16px; margin-bottom:10px;
+  background:rgba(255,196,0,.10); border:1px solid rgba(255,196,0,.35);
+  position:relative;
+}
+.pinned-banner-icon{ font-size:16px; flex-shrink:0; margin-top:1px; }
+.pinned-banner-body{ flex:1; min-width:0; }
+.pinned-banner-label{ font-size:10px; font-weight:800; color:#f0c040; text-transform:uppercase; letter-spacing:.6px; margin-bottom:3px; }
+.pinned-banner-text{ font-size:13px; line-height:1.45; }
+.pinned-banner-meta{ font-size:11px; color:var(--muted); margin-top:4px; }
+.pinned-banner-del{ position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:7px; border:1px solid var(--line); background:rgba(255,255,255,.05); color:var(--muted); cursor:pointer; display:grid; place-items:center; font-size:11px; }
+.pinned-banner-del:hover{ background:rgba(255,79,109,.2); color:var(--danger); }
+[data-theme="light"] .pinned-banner{ background:rgba(255,196,0,.08); border-color:rgba(200,150,0,.35); }
+[data-theme="light"] .pinned-banner-label{ color:#8a6500; }
+
 /* ── Thème clair : corrections des éléments à fond fixe ────────────────────*/
 [data-theme="light"] body{
   background: radial-gradient(1200px 800px at 20% -10%, var(--grad1), transparent 60%),
@@ -2315,6 +2332,21 @@ function swapCard(r){
 }
 
 // ── Messagerie ────────────────────────────────────────────────────────────────
+function renderPinnedMessages(canDelete){
+  const pins=(state.pinnedMessages||[]).slice().reverse();
+  if(!pins.length) return "";
+  return pins.map(p=>`
+    <div class="pinned-banner">
+      <div class="pinned-banner-icon">📌</div>
+      <div class="pinned-banner-body">
+        <div class="pinned-banner-label">Annonce Direction</div>
+        <div class="pinned-banner-text">${escapeHtml(p.text)}</div>
+        <div class="pinned-banner-meta">${p.author||"Direction"} · ${p.time||""}</div>
+      </div>
+      ${canDelete?`<button class="pinned-banner-del" data-unpin="${p.id}" title="Supprimer">✕</button>`:""}
+    </div>`).join("");
+}
+
 function viewMessagesAgent(){
   const u=me();
   const peers=[...state.users.filter(x=>x.role==="agent"&&x.unit===u.unit&&x.id!==u.id),...state.users.filter(x=>x.role==="direction")];
@@ -2322,6 +2354,7 @@ function viewMessagesAgent(){
   if(peer) activeChatPeer=peer.id;
   const msgs=state.messages[convo(u.id,peer?.id)]||[];
   return `
+    ${renderPinnedMessages(false)}
     <div class="carditem">
       <h3>Conversations</h3><div class="muted">Collègues + direction</div><div class="hr"></div>
       <div class="field"><label>Avec</label><select id="chatPeer">${peers.map(p=>`<option value="${p.id}" ${p.id===activeChatPeer?'selected':''}>${p.name}${p.role==="direction"?" (Direction)":""}</option>`).join("")}</select></div>
@@ -2339,11 +2372,22 @@ function viewMessagesAgent(){
 
 function viewMessagesDirection(){
   const u=me();
-  const agents=state.users.filter(x=>x.role==="agent"); // tous les agents, toutes unités
+  const agents=state.users.filter(x=>x.role==="agent");
   const peer=agents.find(a=>a.id===activeChatPeerDir)||agents[0];
   if(peer) activeChatPeerDir=peer.id;
   const msgs=state.messages[convo(u.id,peer?.id)]||[];
   return `
+    <div class="carditem">
+      <h3>📌 Annonces épinglées</h3>
+      <div class="muted">Visible par tous les agents dans leur messagerie.</div>
+      <div class="hr"></div>
+      ${renderPinnedMessages(true)}
+      <div class="field" style="margin-top:${(state.pinnedMessages||[]).length?'10px':'0'}">
+        <label>Nouvelle annonce</label>
+        <textarea id="pinMsgInput" placeholder="Ex : Réunion d'équipe vendredi 14h en salle de pause…" style="min-height:72px"></textarea>
+      </div>
+      <button class="btn primary" id="btnPinMsg" style="margin-top:8px">📌 Épingler l'annonce</button>
+    </div>
     <div class="carditem">
       <h3>Messagerie</h3><div class="muted">Tous les agents</div><div class="hr"></div>
       <div class="field"><label>Agent</label><select id="chatPeerDir">${agents.map(a=>`<option value="${a.id}" ${a.id===activeChatPeerDir?'selected':''}>${a.name} — ${a.unit}</option>`).join("")}</select></div>
@@ -2765,6 +2809,26 @@ function attachHandlers(tabId){
     }
     document.getElementById("btnSendMsgDir")?.addEventListener("click",sendDirMsg);
     document.getElementById("chatInputDir")?.addEventListener("keydown",e=>{ if(e.key==="Enter") sendDirMsg(); });
+
+    // Épingler une annonce
+    document.getElementById("btnPinMsg")?.addEventListener("click",()=>{
+      const input=document.getElementById("pinMsgInput");
+      const text=(input?.value||"").trim();
+      if(!text){ toast("Écris une annonce avant d'épingler","error"); return; }
+      state.pinnedMessages=state.pinnedMessages||[];
+      state.pinnedMessages.push({id:"pin_"+Math.random().toString(16).slice(2), text, author:me().name, time:nowTime()});
+      saveState(); toast("Annonce épinglée 📌"); renderTab("messages_dir");
+    });
+
+    // Désépingler
+    document.querySelectorAll("[data-unpin]").forEach(btn=>{
+      btn.addEventListener("click",()=>{
+        const id=btn.getAttribute("data-unpin");
+        state.pinnedMessages=(state.pinnedMessages||[]).filter(p=>p.id!==id);
+        saveState(); toast("Annonce supprimée"); renderTab("messages_dir");
+      });
+    });
+
     setTimeout(scrollChatBottom,50);
   }
 
