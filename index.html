@@ -88,6 +88,14 @@ input, select, textarea{
   color:var(--text);
   outline:none;
 }
+select option{
+  background: var(--panel);
+  color: var(--text);
+}
+[data-theme="light"] select option{
+  background: #ffffff;
+  color: #0f1a30;
+}
 textarea{min-height:92px;resize:vertical}
 .btn{ width:100%; margin-top:12px; padding:12px 14px; border-radius:14px; border:1px solid var(--line); background: rgba(255,255,255,.04); color:var(--text); font-weight:700; cursor:pointer; }
 .btn.primary{ background: linear-gradient(135deg, var(--primary), var(--primary2)); border: none; }
