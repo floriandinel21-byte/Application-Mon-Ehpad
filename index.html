@@ -1718,7 +1718,9 @@ const tabsDirection=[
 // ── Notifications push ──────────────────────────────────────────────────────
 function requestNotifPermission(){
   if('Notification' in window && Notification.permission === 'default'){
-    Notification.requestPermission();
+    Notification.requestPermission().then(checkShiftReminders);
+  } else {
+    checkShiftReminders();
   }
 }
 
@@ -1733,6 +1735,65 @@ function pushNotif(title, body, icon){
     });
   } catch(e) {}
 }
+
+// ── Rappels de shift ─────────────────────────────────────────────────────────
+const REMINDER_KEY = 'ehpad_reminded';
+
+function checkShiftReminders(){
+  if(!('Notification' in window) || Notification.permission !== 'granted') return;
+  if(!state.session?.userId) return;
+  const uid = state.session.userId;
+  if(state.session.role === 'direction') return;
+
+  const now = new Date();
+  const todayIso = iso(now);
+  const tomorrowIso = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate()+1));
+
+  const reminded = JSON.parse(localStorage.getItem(REMINDER_KEY)||'{}');
+
+  // Rappel pour aujourd'hui (si shift dans moins de 2h)
+  const todayShift = state.shifts.find(s=>s.userId===uid && s.date===todayIso);
+  if(todayShift){
+    const [h,m] = todayShift.start.split(':').map(Number);
+    const shiftMins = h*60+m;
+    const nowMins = now.getHours()*60+now.getMinutes();
+    const diff = shiftMins - nowMins;
+    const remKey = `today_${todayIso}_${todayShift.id}`;
+    if(diff > 0 && diff <= 120 && !reminded[remKey]){
+      reminded[remKey] = true;
+      localStorage.setItem(REMINDER_KEY, JSON.stringify(reminded));
+      const label = diff < 60 ? `dans ${diff} min` : `dans ${Math.round(diff/60)}h`;
+      pushNotif(
+        `⏰ Shift ${todayShift.label} ${label}`,
+        `${todayShift.start}–${todayShift.end} · ${todayShift.unit}`
+      );
+    }
+  }
+
+  // Rappel la veille (entre 18h et 23h)
+  const tomorrowShift = state.shifts.find(s=>s.userId===uid && s.date===tomorrowIso);
+  const hour = now.getHours();
+  if(tomorrowShift && hour >= 18 && hour < 23){
+    const remKey = `eve_${tomorrowIso}_${tomorrowShift.id}`;
+    if(!reminded[remKey]){
+      reminded[remKey] = true;
+      localStorage.setItem(REMINDER_KEY, JSON.stringify(reminded));
+      const dateLabel = new Date(tomorrowIso+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long'});
+      pushNotif(
+        `📅 Shift demain — ${tomorrowShift.label}`,
+        `${capitalize(dateLabel)} · ${tomorrowShift.start}–${tomorrowShift.end} · ${tomorrowShift.unit}`
+      );
+    }
+  }
+}
+
+// Vérifie toutes les 5 minutes
+setInterval(checkShiftReminders, 5 * 60 * 1000);
+
+// Vérifie aussi quand la page reprend le focus
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible') checkShiftReminders();
+});
 
 
 function render(){
@@ -2909,6 +2970,18 @@ function viewAccount(){
     </div>
     <div class="carditem">
       <h3>Apparence</h3><div class="muted">Choisir le thème et la langue de l'application.</div><div class="hr"></div>
+      <div class="section-title" style="margin-bottom:8px">Rappels de shift</div>
+      <div class="muted" style="margin-bottom:10px;font-size:12px">
+        Reçois une notification push la <strong>veille de ton shift</strong> (entre 18h–23h) et <strong>2h avant</strong> le début.
+      </div>
+      ${('Notification' in window)?`
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+        <span style="font-size:13px">
+          Statut : ${Notification.permission==='granted'?'<span style="color:var(--success);font-weight:700">✅ Activé</span>':Notification.permission==='denied'?'<span style="color:var(--danger);font-weight:700">❌ Bloqué dans le navigateur</span>':'<span style="color:#ff9f43;font-weight:700">⏳ Non autorisé</span>'}
+        </span>
+        ${Notification.permission!=='granted'?`<button class="btn small primary" id="btnEnableReminders">Activer</button>`:`<button class="btn small ghost" id="btnTestReminder">Tester 🔔</button>`}
+      </div>`:'<div class="muted" style="font-size:12px;margin-bottom:12px">Notifications non supportées par ce navigateur.</div>'}
+      <div class="hr"></div>
       <div class="section-title" style="margin-bottom:8px">Thème</div>
       <div class="grid2" style="grid-template-columns:repeat(3,1fr)">
         <button class="btn theme-btn ${(localStorage.getItem('ehpad_theme')||'system')==='dark'?'primary':'ghost'}" data-theme-pick="dark">🌙 Sombre</button>
@@ -3333,6 +3406,26 @@ function attachHandlers(tabId){
       if(!confirm("Réinitialiser toutes les données de démo ?\nCette action est irréversible.")) return;
       localStorage.removeItem(LS_KEY); state=loadState(); saveState(); navStack=[]; currentTab="planning"; toast("Réinitialisé ✅"); render();
     });
+    // Rappels
+    document.getElementById('btnEnableReminders')?.addEventListener('click',()=>{
+      Notification.requestPermission().then(p=>{
+        if(p==='granted'){ toast('Rappels activés ✅'); checkShiftReminders(); renderTab('compte'); }
+        else toast('Permission refusée ❌','error');
+      });
+    });
+    document.getElementById('btnTestReminder')?.addEventListener('click',()=>{
+      const next = getNextShift(state.session.userId);
+      if(next){
+        pushNotif(
+          `📅 Test — Shift ${next.label}`,
+          `${next.start}–${next.end} · ${next.unit} · ${fmtDate(next.date)}`
+        );
+        toast('Notification de test envoyée 🔔');
+      } else {
+        toast('Aucun shift à venir','info');
+      }
+    });
+
     // Langue
     const savedLang = localStorage.getItem('ehpad_lang')||'';
     const langSel = document.getElementById('langSelect');
