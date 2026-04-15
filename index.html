@@ -116,6 +116,11 @@ textarea{min-height:92px;resize:vertical}
 .iconbtn svg{width:20px;height:20px}
 .iconbtn.primary{ background: rgba(79,140,255,.18); border-color: rgba(79,140,255,.35); }
 .main{ flex:1; overflow:auto; padding:12px 12px 148px; display:flex; flex-direction:column; gap:16px; }
+.main.tab-enter{ animation: tabFadeIn .18s ease forwards; }
+@keyframes tabFadeIn{
+  from{ opacity:0; transform:translateY(8px); }
+  to{   opacity:1; transform:translateY(0); }
+}
 .tabbar{ position:sticky; bottom:0; display:grid; grid-template-columns: repeat(5, 1fr); gap:8px; padding:10px 10px 12px; border-top:1px solid var(--line); background: linear-gradient(180deg, rgba(0,0,0,.2), rgba(0,0,0,.38)); backdrop-filter: blur(10px); }
 .tab{ display:flex; flex-direction:column; gap:6px; align-items:center; justify-content:center; padding:10px 6px; border-radius:14px; color:var(--muted); cursor:pointer; user-select:none; }
 .tab.active{ color:var(--text); background: rgba(79,140,255,.14); border:1px solid rgba(79,140,255,.35); }
@@ -1957,6 +1962,10 @@ function renderTab(tabId){
   updateHeader();
   const main=document.getElementById("main");
   const role=state.session.role;
+  // Animation
+  main.classList.remove("tab-enter");
+  void main.offsetWidth; // reflow
+  main.classList.add("tab-enter");
   if(role==="agent"){
     if(tabId==="planning")  main.innerHTML=viewPlanningAgent();
     else if(tabId==="echanges") main.innerHTML=viewSwapsAgent();
@@ -2461,12 +2470,17 @@ function viewSwapsAgent(){
   const swaps=state.swapRequests.filter(r=>r.requesterId===u.id||r.targetId===u.id).slice().reverse();
   const leaves=state.leaveRequests.filter(r=>r.userId===u.id).slice().reverse();
   const filter=state.ui?.historyFilter||"all";
+  const histPage=state.ui?.historyPage||0;
+  const PAGE_SIZE=5;
   const filteredSwaps=filter==="all"||filter==="swap"?swaps:[];
   const filteredLeaves=filter==="all"||filter==="leave"?leaves:[];
   const allItems=[
     ...filteredSwaps.map(r=>({...r,_kind:"swap"})),
     ...filteredLeaves.map(r=>({...r,_kind:"leave"}))
   ].sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
+  const totalPages=Math.max(1,Math.ceil(allItems.length/PAGE_SIZE));
+  const curPage=Math.min(histPage,totalPages-1);
+  const pageItems=allItems.slice(curPage*PAGE_SIZE,(curPage+1)*PAGE_SIZE);
 
   const filterBtns=[
     {id:"all",label:"Tout"},
@@ -2492,8 +2506,13 @@ function viewSwapsAgent(){
       </div>
       <div class="muted" style="margin-bottom:10px">${allItems.length} demande(s)</div>
       <div class="cardlist">
-        ${allItems.length ? allItems.map(r=>r._kind==="swap"?swapCard(r,u.id):leaveCard(r)).join("") : `<div class="muted">Aucune demande pour l'instant.</div>`}
+        ${pageItems.length ? pageItems.map(r=>r._kind==="swap"?swapCard(r,u.id):leaveCard(r)).join("") : `<div class="muted">Aucune demande pour l'instant.</div>`}
       </div>
+      ${totalPages>1?`<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px">
+        <button class="btn small ghost hist-page-btn" data-page="${curPage-1}" ${curPage===0?"disabled style='opacity:.4;cursor:not-allowed'":""}>← Précédent</button>
+        <span class="muted" style="font-size:12px">Page ${curPage+1} / ${totalPages}</span>
+        <button class="btn small ghost hist-page-btn" data-page="${curPage+1}" ${curPage>=totalPages-1?"disabled style='opacity:.4;cursor:not-allowed'":""}>Suivant →</button>
+      </div>`:""}
     </div>`;
 }
 
@@ -3508,7 +3527,14 @@ function attachHandlers(tabId){
     document.querySelectorAll(".hist-filter-btn").forEach(btn=>{
       btn.addEventListener("click",()=>{
         state.ui=state.ui||{}; state.ui.historyFilter=btn.getAttribute("data-filter");
+        state.ui.historyPage=0; // reset page on filter change
         saveState(); renderTab("echanges");
+      });
+    });
+    document.querySelectorAll(".hist-page-btn").forEach(btn=>{
+      btn.addEventListener("click",()=>{
+        const p=parseInt(btn.getAttribute("data-page"),10);
+        if(!isNaN(p) && p>=0){ state.ui=state.ui||{}; state.ui.historyPage=p; saveState(); renderTab("echanges"); }
       });
     });
   }
@@ -4456,6 +4482,31 @@ function applyLang(lang){
 }
 // Apply saved language on boot
 applyLang(localStorage.getItem('ehpad_lang')||'');
+
+// ── Swipe navigation mobile ──────────────────────────────────────────────────
+(function(){
+  let xStart=null, yStart=null;
+  const main = document.getElementById("main");
+  if(!main) return;
+
+  main.addEventListener("touchstart", e=>{
+    xStart = e.touches[0].clientX;
+    yStart = e.touches[0].clientY;
+  }, {passive:true});
+
+  main.addEventListener("touchend", e=>{
+    if(xStart===null) return;
+    const dx = e.changedTouches[0].clientX - xStart;
+    const dy = e.changedTouches[0].clientY - yStart;
+    xStart = null; yStart = null;
+    // Only horizontal swipe > 60px and more horizontal than vertical
+    if(Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)*1.5) return;
+    const tabs = state.session.role==="direction" ? tabsDirection : tabsAgent;
+    const idx = tabs.findIndex(t=>t.id===currentTab);
+    if(dx < 0 && idx < tabs.length-1) navigate(tabs[idx+1].id); // swipe left → next
+    if(dx > 0 && idx > 0)             navigate(tabs[idx-1].id); // swipe right → prev
+  }, {passive:true});
+})();
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 requestNotifPermission();
