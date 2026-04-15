@@ -2245,7 +2245,7 @@ function viewDashboard(){
                   <div style="font-size:10px;color:#32d583">${best.reasons.join(" · ")}</div>
                 </div>
               </div>
-              <button class="btn small primary" data-assign="${best.u.id}" style="flex-shrink:0">Assigner</button>
+              <button class="btn small primary" data-assign="${best.u.id}" data-absent-unit="${x.user.unit}" data-absent-date="${today}" style="flex-shrink:0">Assigner</button>
             </div>
             ${others.filter(o=>o.score>0).length ? `
               <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Autres disponibles</div>
@@ -2255,7 +2255,7 @@ function viewDashboard(){
                     <div style="width:26px;height:26px;border-radius:8px;background:${avatarColor(o.u.id)};display:grid;place-items:center;font-weight:900;font-size:10px;flex-shrink:0">${avatarInitials(o.u.name)}</div>
                     <div style="font-size:12px;font-weight:750">${o.u.name} <span class="muted">· ${o.u.unit}</span></div>
                   </div>
-                  <button class="btn small ghost" data-assign="${o.u.id}" style="font-size:11px;padding:5px 10px">Assigner</button>
+                  <button class="btn small ghost" data-assign="${o.u.id}" data-absent-unit="${x.user.unit}" data-absent-date="${today}" style="font-size:11px;padding:5px 10px">Assigner</button>
                 </div>`).join("")}` : ""}
           ` : `<div class="muted" style="font-size:12px">Aucun agent disponible pour ce remplacement.</div>`}
         </div>`;
@@ -3551,10 +3551,15 @@ function attachHandlers(tabId){
     attachValidationBtns();
     document.querySelectorAll("[data-assign]").forEach(btn=>{
       btn.addEventListener("click",()=>{
-        const agentId=btn.getAttribute("data-assign");
-        const agent=state.users.find(u=>u.id===agentId);
-        toast((agent?.name||"Agent")+" — assigner un horaire");
-        openAddShiftModal(agentId);
+        const agentId    = btn.getAttribute("data-assign");
+        const absentUnit = btn.getAttribute("data-absent-unit")||null;
+        const absentDate = btn.getAttribute("data-absent-date")||null;
+        // Cherche le shift de l'absent ce jour dans cette unité
+        let absentShift = null;
+        if(absentDate && absentUnit){
+          absentShift = state.shifts.find(s=>s.date===absentDate && s.unit===absentUnit);
+        }
+        openAssignReplacementModal(agentId, absentUnit, absentDate, absentShift);
       });
     });
   }
@@ -3848,6 +3853,64 @@ function openSwapModalFromChat(){
     const my=state.shifts.find(s=>s.id===myId), pe=state.shifts.find(s=>s.id===peerShiftId);
     state.messages[key].push({id:"m_"+Math.random().toString(16).slice(2),from:u.id,type:"swap",summary:`${fmtDate(my.date)} ${my.start}–${my.end} ↔ ${fmtDate(pe.date)} ${pe.start}–${pe.end}${note?" • "+note:""}`,time:nowTime()});
     saveState(); closeModal(); toast("Échange envoyé ✅"); renderTab("messages"); setTimeout(scrollChatBottom,50);
+  };
+}
+
+function openAssignReplacementModal(agentId, absentUnit, absentDate, absentShift){
+  const agent = state.users.find(u=>u.id===agentId);
+  const units = [...new Set(state.shifts.map(s=>s.unit))].sort();
+  const preUnit  = absentUnit || agent?.unit || units[0];
+  const preDate  = absentDate || iso(new Date());
+  const preStart = absentShift?.start || "07:00";
+  const preEnd   = absentShift?.end   || "14:00";
+  const preLabel = absentShift?.label || "Matin";
+
+  openModal(`🔄 Assigner ${agent?.name||""}`,`
+    <div style="background:rgba(79,140,255,.08);border:1px solid rgba(79,140,255,.3);border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:12px">
+      <div style="font-weight:800;margin-bottom:4px">Remplaçant : ${agent?.name||""}</div>
+      ${absentShift?`<div class="muted">Horaire de l'absent pré-rempli — modifiable ci-dessous.</div>`:`<div class="muted">Aucun horaire trouvé pour l'absent — remplis manuellement.</div>`}
+    </div>
+    <div class="field"><label>Unité à couvrir</label>
+      <select id="ar_unit">${units.map(u=>`<option value="${u}" ${u===preUnit?"selected":""}>${u}</option>`).join("")}</select>
+    </div>
+    <div class="grid2" style="margin-top:10px">
+      <div class="field"><label>Date</label><input type="date" id="ar_date" value="${preDate}"/></div>
+      <div class="field"><label>Poste</label>
+        <select id="ar_label">
+          ${["Matin","Soir","Nuit","Journée"].map(l=>`<option value="${l}" ${l===preLabel?"selected":""}>${l}</option>`).join("")}
+        </select>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:10px">
+      <div class="field"><label>Début</label><input type="time" id="ar_start" value="${preStart}"/></div>
+      <div class="field"><label>Fin</label><input type="time" id="ar_end" value="${preEnd}"/></div>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>📝 Note</label>
+      <input id="ar_note" placeholder="Ex : Remplacement ${absentShift?userName(absentShift.userId)||'':''}" value="${absentShift?"Remplacement de "+userName(absentShift.userId):""}"/>
+    </div>`,
+  `<button class="btn ghost" id="ar_cancel">Annuler</button><button class="btn primary" id="ar_save">✅ Confirmer l'assignation</button>`);
+
+  document.getElementById("ar_label")?.addEventListener("change",e=>{
+    const m={Matin:["07:00","14:00"],Soir:["14:00","21:30"],Nuit:["21:30","07:00"],Journée:["08:00","20:00"]}[e.target.value]||["07:00","14:00"];
+    document.getElementById("ar_start").value=m[0];
+    document.getElementById("ar_end").value=m[1];
+  });
+  document.getElementById("ar_cancel").onclick = closeModal;
+  document.getElementById("ar_save").onclick = ()=>{
+    const unit  = document.getElementById("ar_unit").value;
+    const date  = document.getElementById("ar_date").value;
+    const label = document.getElementById("ar_label").value;
+    const start = document.getElementById("ar_start").value;
+    const end   = document.getElementById("ar_end").value;
+    const note  = document.getElementById("ar_note").value.trim()||undefined;
+    if(!date||!start||!end){ toast("Complète tous les champs","error"); return; }
+    state.shifts.push({id:"s_"+Math.random().toString(16).slice(2), userId:agentId, unit, date, start, end, label, note});
+    // Notification à l'agent
+    pushNotif(agentId, `Tu as été assigné en remplacement le ${fmtDate(date)} — ${start}–${end} (${unit})`, "info");
+    saveState(); closeModal();
+    toast(`${agent?.name||"Agent"} assigné ✅`);
+    renderTab("dashboard_dir");
   };
 }
 
