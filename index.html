@@ -695,11 +695,13 @@ textarea{min-height:92px;resize:vertical}
       </div>
 
       <div class="content">
-        <div class="card hero">
-          <div class="hero-title">Connexion</div>
-          <div class="hero-sub">Choisis un profil pour tester (Agent / Direction).</div>
+        <div class="card hero" style="text-align:center;padding:28px 20px">
+          <!-- Avatar animé -->
+          <div id="loginAvatar" style="width:72px;height:72px;border-radius:22px;background:linear-gradient(135deg,rgba(79,140,255,1),rgba(47,109,240,1));display:grid;place-items:center;font-weight:900;font-size:28px;margin:0 auto 16px;box-shadow:0 12px 32px rgba(79,140,255,.4);transition:all .3s ease">🏥</div>
+          <div class="hero-title" id="loginWelcome">Bonjour !</div>
+          <div class="hero-sub" id="loginSub" style="margin-bottom:20px">Choisis ton profil pour te connecter.</div>
 
-          <div class="row gap">
+          <div class="row gap" style="text-align:left">
             <div class="field">
               <label>Rôle</label>
               <select id="loginRole">
@@ -713,11 +715,15 @@ textarea{min-height:92px;resize:vertical}
             </div>
           </div>
 
-          <button class="btn primary" id="btnLogin">Se connecter</button>
+          <!-- Avatar chips de sélection rapide -->
+          <div id="loginAvatarRow" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:12px 0"></div>
 
-          <div class="hint">
+          <button class="btn primary" id="btnLogin" style="margin-top:8px">
+            <span id="btnLoginLabel">Se connecter →</span>
+          </button>
+
+          <div class="hint" style="justify-content:center">
             <span class="pill">100% local</span>
-            <span class="pill">Windows OK</span>
             <span class="pill">Sans serveur</span>
           </div>
         </div>
@@ -1833,38 +1839,61 @@ function setupLogin(){
   const userSel=document.getElementById("loginUser");
   roleSel.value=state.session?.role||"agent";
 
+  function updateWelcome(){
+    const uid=userSel.value;
+    const u=state.users.find(x=>x.id===uid);
+    const welcome=document.getElementById("loginWelcome");
+    const sub=document.getElementById("loginSub");
+    const avatar=document.getElementById("loginAvatar");
+    const btn=document.getElementById("btnLoginLabel");
+    if(u&&welcome){
+      welcome.textContent=`Bonjour, ${u.name.split(" ")[0]} !`;
+      sub.textContent=roleSel.value==="direction"?"Accès Direction — Tableau de bord":"Accès Agent — Planning & messages";
+      avatar.textContent=avatarInitials(u.name);
+      avatar.style.background=`linear-gradient(135deg,${avatarColor(u.id)},${avatarColor(u.id)}cc)`;
+      if(btn) btn.textContent=`Connexion en tant que ${u.name.split(" ")[0]} →`;
+    }
+  }
+
   function fillUsers(){
     const users=state.users.filter(u=>u.role===roleSel.value);
     userSel.innerHTML=users.map(u=>`<option value="${u.id}">${u.name} — ${u.unit}</option>`).join("");
     userSel.value=users[0]?.id||"";
-    renderAvatars(users);
-    const loginBtn=document.getElementById("btnLogin");
-    if(loginBtn) loginBtn.textContent=roleSel.value==="direction"?"Se connecter en tant que Direction":"Se connecter en tant qu'Agent";
+    renderAvatarRow(users);
+    updateWelcome();
   }
-  function renderAvatars(users){
-    let wrap=document.getElementById("loginAvatars");
-    if(!wrap){
-      wrap=document.createElement("div"); wrap.id="loginAvatars"; wrap.className="avatar-row";
-      document.getElementById("btnLogin").before(wrap);
-    }
-    wrap.innerHTML=users.map(u=>`
-      <div class="avatar-chip ${u.id===userSel.value?'active':''}" data-uid="${u.id}">
-        <div class="avatar-circle" style="background:${avatarColor(u.id)}">${avatarInitials(u.name)}</div>
-        <span>${u.name.split(" ")[0]}</span>
+
+  function renderAvatarRow(users){
+    const row=document.getElementById("loginAvatarRow");
+    if(!row) return;
+    row.innerHTML=users.map(u=>`
+      <div class="avatar-chip ${u.id===userSel.value?"active":""}" data-uid="${u.id}" style="padding:8px 10px">
+        <div class="avatar-circle" style="background:${avatarColor(u.id)};width:34px;height:34px;border-radius:11px;font-size:12px">${avatarInitials(u.name)}</div>
+        <span style="font-size:11px">${u.name.split(" ")[0]}</span>
       </div>`).join("");
-    wrap.querySelectorAll(".avatar-chip").forEach(chip=>{
+    row.querySelectorAll(".avatar-chip").forEach(chip=>{
       chip.addEventListener("click",()=>{
         userSel.value=chip.getAttribute("data-uid");
-        wrap.querySelectorAll(".avatar-chip").forEach(c=>c.classList.toggle("active",c===chip));
+        row.querySelectorAll(".avatar-chip").forEach(c=>c.classList.toggle("active",c===chip));
+        updateWelcome();
       });
     });
   }
+
+  userSel.addEventListener("change", updateWelcome);
   roleSel.addEventListener("change",fillUsers);
   fillUsers();
+
   document.getElementById("btnLogin").addEventListener("click",()=>{
-    state.session.role=roleSel.value; state.session.userId=userSel.value; saveState();
-    currentTab=state.session.role==="direction"?"dashboard_dir":"planning";
-    render(); toast("Connecté ✅");
+    const btn=document.getElementById("btnLogin");
+    btn.style.opacity="0.7"; btn.disabled=true;
+    setTimeout(()=>{
+      state.session.role=roleSel.value; state.session.userId=userSel.value;
+      state.session.lastLogin=new Date().toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"});
+      saveState();
+      currentTab=state.session.favoriteTab||(state.session.role==="direction"?"dashboard_dir":"planning");
+      render(); toast("Connecté ✅");
+    }, 300); // petit délai pour l'animation
   });
 }
 
@@ -3345,7 +3374,7 @@ function viewAccount(){
         <div class="row" style="justify-content:space-between;gap:10px;align-items:center">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="width:40px;height:40px;border-radius:14px;background:${avatarColor(u.id)};display:grid;place-items:center;font-weight:900;font-size:14px">${avatarInitials(u.name)}</div>
-            <div><div style="font-weight:850">${u.name}</div><div class="muted">${isDirection()?"Direction":"Agent"} • ${u.unit}</div></div>
+            <div><div style="font-weight:850">${u.name}</div><div class="muted">${isDirection()?"Direction":"Agent"} • ${u.unit}</div>${state.session.lastLogin?`<div style="font-size:11px;color:var(--muted);margin-top:2px">🕐 Dernière connexion : ${state.session.lastLogin}</div>`:""}</div>
           </div>
           <button class="btn small danger" id="btnLogout">Déconnexion</button>
         </div>
@@ -3361,6 +3390,16 @@ function viewAccount(){
         <button class="btn ${!isDirection()?'primary':'ghost'}" id="btnRoleAgent">Agent</button>
       </div>
       <div class="muted" style="margin-top:10px">En production : connexion sécurisée par e-mail (Firebase Auth).</div>
+      <div class="hr"></div>
+      <div class="section-title" style="margin-bottom:8px">⭐ Onglet de démarrage</div>
+      <div class="muted" style="margin-bottom:10px;font-size:12px">L'onglet qui s'ouvre automatiquement à la connexion.</div>
+      <div class="grid2" style="grid-template-columns:repeat(${isDirection()?5:4},1fr)">
+        ${(isDirection()?tabsDirection.filter(t=>t.id!=="compte"):tabsAgent.filter(t=>t.id!=="compte")).map(t=>{
+          const fav=state.session.favoriteTab||null;
+          const isF=fav===t.id||(fav===null&&((isDirection()&&t.id==="dashboard_dir")||(!isDirection()&&t.id==="planning")));
+          return `<button class="btn ${isF?"primary":"ghost"} fav-tab-btn" data-fav="${t.id}" style="font-size:11px;padding:8px 4px">${t.label}</button>`;
+        }).join("")}
+      </div>
     </div>
     <div class="carditem">
       <h3>Apparence</h3><div class="muted">Choisir le thème et la langue de l'application.</div><div class="hr"></div>
@@ -3899,6 +3938,19 @@ function attachHandlers(tabId){
       localStorage.removeItem(LS_KEY); state=loadState(); saveState(); navStack=[]; currentTab="planning"; toast("Réinitialisé ✅"); render();
     });
     // Rappels
+    document.querySelectorAll(".fav-tab-btn").forEach(btn=>{
+      btn.addEventListener("click",()=>{
+        const tab = btn.getAttribute("data-fav");
+        state.session.favoriteTab = tab;
+        saveState();
+        document.querySelectorAll(".fav-tab-btn").forEach(b=>{
+          b.classList.toggle("primary", b.getAttribute("data-fav")===tab);
+          b.classList.toggle("ghost",   b.getAttribute("data-fav")!==tab);
+        });
+        toast("Onglet favori : "+btn.textContent.trim()+" ⭐");
+      });
+    });
+
     document.getElementById('btnEnableReminders')?.addEventListener('click',()=>{
       Notification.requestPermission().then(p=>{
         if(p==='granted'){ toast('Rappels activés ✅'); checkShiftReminders(); renderTab('compte'); }
@@ -3959,7 +4011,7 @@ function attachValidationBtns(){
 // ── Actions ───────────────────────────────────────────────────────────────────
 function switchRole(role){
   state.session.role=role; state.session.userId=state.users.find(u=>u.role===role)?.id||""; saveState(); navStack=[];
-  currentTab=role==="direction"?"dashboard_dir":"planning"; toast("Rôle changé ✅"); render();
+  state.session.favoriteTab=null; currentTab=role==="direction"?"dashboard_dir":"planning"; toast("Rôle changé ✅"); render();
 }
 function sendChatMessage(){
   const u=me(), peerId=document.getElementById("chatPeer").value, input=document.getElementById("chatInput"), text=(input.value||"").trim();
