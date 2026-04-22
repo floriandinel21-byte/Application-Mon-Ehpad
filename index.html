@@ -785,6 +785,12 @@ textarea{min-height:92px;resize:vertical}
           <tbody id="loginCredsTable"></tbody>
         </table>
       </details>
+
+      <div style="text-align:center;margin-top:12px">
+        <button id="btnResetFromLogin" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">
+          Problème de connexion ? Réinitialiser la démo
+        </button>
+      </div>
     </div>
   </template>
 
@@ -1939,6 +1945,13 @@ function setupLogin(){
   btn?.addEventListener("click", tryLogin);
   passInput?.addEventListener("keydown", e=>{ if(e.key==="Enter") tryLogin(); });
   identInput?.addEventListener("keydown", e=>{ if(e.key==="Enter") passInput?.focus(); });
+
+  // Bouton réinitialisation depuis login
+  document.getElementById("btnResetFromLogin")?.addEventListener("click",()=>{
+    if(!confirm("Réinitialiser toutes les données de démo ?\nCela rechargera l'application avec les comptes par défaut.")) return;
+    localStorage.removeItem(LS_KEY);
+    location.reload();
+  });
 
   // Focus automatique
   setTimeout(()=>identInput?.focus(), 100);
