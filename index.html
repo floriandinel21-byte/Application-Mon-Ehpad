@@ -2525,7 +2525,8 @@ function viewDashboard(){
 
   return `
     ${renderAlertsCard()}
-    <div class="kpi-grid" style="margin-top:28px">
+    <div style="height:20px"></div>
+    <div class="kpi-grid">
       <div class="kpi-card">
         <div class="kpi-icon" style="background:rgba(79,140,255,.18);color:#4f8cff">${icons.calendar}</div>
         <div class="kpi-val">${agentsToday}</div>
@@ -2577,7 +2578,8 @@ function viewDashboard(){
     </div>
 
     ${quickItems.length?`
-    <div class="carditem" style="margin-top:28px">
+    <div style="height:20px"></div>
+    <div class="carditem">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
         <h3 style="margin:0">Demandes en attente</h3>
         <button class="btn small ghost" id="btnGoValidations">Tout voir →</button>
@@ -3053,7 +3055,8 @@ function viewAnnoncesDirection(){
       <button class="btn primary" id="btnPublishAnn" style="margin-top:10px">📣 Publier l'annonce</button>
     </div>
 
-    <div class="carditem" style="margin-top:28px">
+    <div style="height:20px"></div>
+    <div class="carditem">
       <h3>Annonces publiées (${announcements.length})</h3>
       <div class="hr"></div>
       ${announcements.length ? announcements.map(a=>{
@@ -3590,7 +3593,8 @@ function viewProfilesDirection(){
       </div>
       <button class="btn primary" id="btnAddAgent" style="margin-top:8px">➕ Ajouter l'agent</button>
     </div>
-    <div class="carditem" style="margin-top:28px">
+    <div style="height:20px"></div>
+    <div class="carditem">
       <h3>🎨 Couleurs des unités</h3>
       <div class="muted">Personnaliser la couleur de chaque unité dans le planning.</div>
       <div class="hr"></div>
@@ -3616,7 +3620,8 @@ function viewProfilesDirection(){
         }).join("")}
       </div>
     </div>
-    <div class="carditem" style="margin-top:28px">
+    <div style="height:20px"></div>
+    <div class="carditem">
       <h3>👥 Seuils de staffing minimum</h3>
       <div class="muted">Nombre d'agents minimum par unité et par jour. Une alerte s'affiche si ce seuil n'est pas atteint sur les 14 prochains jours.</div>
       <div class="hr"></div>
@@ -3636,7 +3641,8 @@ function viewProfilesDirection(){
       </div>
       <button class="btn primary" id="btnSaveMinStaff">💾 Enregistrer les seuils</button>
     </div>
-    <div class="carditem" style="margin-top:28px">
+    <div style="height:20px"></div>
+    <div class="carditem">
       <h3>🏖️ Quotas de congés payés</h3>
       <div class="muted">Configurer le nombre de jours par agent pour cette année.</div>
       <div class="hr"></div>
@@ -3675,7 +3681,8 @@ function viewProfilesDirection(){
       </div>
       <button class="btn primary" id="btnSaveAllQuotas" style="margin-top:12px">💾 Enregistrer les quotas</button>
     </div>
-    <div class="carditem" style="margin-top:28px">
+    <div style="height:20px"></div>
+    <div class="carditem">
       <h3>Profils & santé</h3><div class="muted">Lecture seule • accès réservé à la direction</div><div class="hr"></div>
       <div class="cardlist">
         ${agents.map(a=>{
@@ -4001,7 +4008,8 @@ function viewAccount(){
     </div>
 
     <!-- ── CARTE 2 : Paramètres ──────────────────────────────────────────── -->
-    <div class="carditem" style="margin-top:28px">
+    <div style="height:20px"></div>
+    <div class="carditem">
       <h3 style="margin-bottom:16px">⚙️ Paramètres</h3>
 
       <div class="section-title" style="margin-bottom:8px">Thème</div>
@@ -4084,7 +4092,8 @@ function viewAccount(){
     </div>
 
     <!-- ── CARTE 3 : Sécurité ────────────────────────────────────────────── -->
-    <div class="carditem" style="margin-top:28px">
+    <div style="height:20px"></div>
+    <div class="carditem">
       <h3 style="margin-bottom:16px">🔒 Sécurité</h3>
 
       ${(isWebAuthnAvailable()&&hasBiometricForUser(state.session.userId))?`
@@ -4121,7 +4130,8 @@ function viewAccount(){
     </div>
 
     <!-- ── CARTE 4 : Données ─────────────────────────────────────────────── -->
-    <div class="carditem" style="margin-top:28px">
+    <div style="height:20px"></div>
+    <div class="carditem">
       <h3 style="margin-bottom:4px">🗄️ Données locales</h3>
       <div class="muted" style="margin-bottom:14px;font-size:12px">Réinitialise toutes les données de démo.</div>
       <button class="btn danger" id="btnReset">Réinitialiser la démo</button>
