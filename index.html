@@ -2673,6 +2673,7 @@ function viewPlanningAgent(){
           <button class="btn small ghost" id="btnExportMyPDF" style="display:flex;align-items:center;gap:4px">📄 PDF</button>
           <button class="btn small ${calView==="week"?"primary":"ghost"}" id="btnViewWeek">Semaine</button>
           <button class="btn small ${calView==="month"?"primary":"ghost"}" id="btnViewMonth">Mois</button>
+          <button class="btn small ${calView==="year"?"primary":"ghost"}" id="btnViewYear">Année</button>
         </div>
       </div>
       <div style="position:relative;margin-top:8px">
@@ -2717,7 +2718,7 @@ function viewPlanningAgent(){
       </div>
       <div class="hr"></div>
 
-      ${calView==="week" ? renderWeekView({meId:u.id,unit:selectedUnit}) : renderIOSCalendar({mode:"agent",unit:selectedUnit,meId:u.id})}
+      ${calView==="week" ? renderWeekView({meId:u.id,unit:selectedUnit}) : calView==="year" ? renderYearView(u.id) : renderIOSCalendar({mode:"agent",unit:selectedUnit,meId:u.id})}
     </div>
     <div class="carditem">
       <h3>Disponibilités</h3>
@@ -3078,10 +3079,188 @@ function bubble(m,isMe){
 }
 
 // ── Profil agent ──────────────────────────────────────────────────────────────
+function renderYearView(userId){
+  const now = new Date();
+  const year = (state.ui?.calendarYM?.y) || now.getFullYear();
+  const months = Array.from({length:12},(_,i)=>i);
+  const shiftColors = {Matin:"#4f8cff", Soir:"#ff9f43", Nuit:"#a855f7", Journée:"#32d583"};
+  const shiftBg     = {Matin:"rgba(79,140,255,.75)", Soir:"rgba(255,159,67,.75)", Nuit:"rgba(168,85,247,.75)", Journée:"rgba(50,213,131,.75)"};
+
+  const yearShifts = state.shifts.filter(s=>s.userId===userId && s.date.startsWith(year.toString()));
+  const yearLeaves = state.leaveRequests.filter(r=>r.userId===userId && r.status==="approved" && r.from?.startsWith(year.toString()));
+
+  let totalShifts=0, totalH=0;
+  yearShifts.forEach(s=>{
+    totalShifts++;
+    const [sh,sm]=s.start.split(":").map(Number);
+    let [eh,em]=s.end.split(":").map(Number);
+    let mn=(eh*60+em)-(sh*60+sm); if(mn<0) mn+=24*60;
+    totalH+=mn;
+  });
+
+  const grid = months.map(m=>{
+    const daysInMonth = new Date(year,m+1,0).getDate();
+    const monthLabel = new Date(year,m,1).toLocaleDateString("fr-FR",{month:"short"});
+    const cells = [];
+    for(let d=1;d<=daysInMonth;d++){
+      const di = `${year}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      const shift = yearShifts.find(s=>s.date===di);
+      const isLeave = yearLeaves.some(r=>r.from<=di&&r.to>=di);
+      const dw = new Date(di+"T00:00:00").getDay();
+      const isWE = dw===0||dw===6;
+      const isToday = di===iso(now);
+
+      let bg = "transparent";
+      let border = "transparent";
+      if(shift){ bg=shiftBg[shift.label]||"rgba(79,140,255,.6)"; }
+      else if(isLeave){ bg="rgba(50,213,131,.25)"; border="rgba(50,213,131,.5)"; }
+      else if(isWE){ bg="rgba(255,255,255,.03)"; }
+
+      cells.push(`<div title="${di}${shift?" · "+shift.label+" "+shift.start+"–"+shift.end:isLeave?" · Congé":""}"
+        style="width:10px;height:10px;border-radius:2px;background:${bg};border:1px solid ${isToday?"#fff":border};flex-shrink:0;cursor:default"></div>`);
+    }
+    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+      <div style="width:24px;font-size:9px;color:var(--muted);text-align:right;flex-shrink:0">${monthLabel}</div>
+      <div style="display:flex;gap:2px;flex-wrap:nowrap">${cells.join("")}</div>
+    </div>`;
+  }).join("");
+
+  // Légende types
+  const legend = Object.entries(shiftColors).map(([label,color])=>`
+    <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)">
+      <span style="width:10px;height:10px;border-radius:2px;background:${color};opacity:.75;display:inline-block"></span>${label}
+    </span>`).join("");
+
+  return `<div style="padding:4px 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:800">📅 ${year}</div>
+      <div style="display:flex;gap:8px">
+        <button class="iconbtn" id="btnYearPrev" style="width:28px;height:28px;border-radius:8px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button class="iconbtn" id="btnYearNext" style="width:28px;height:28px;border-radius:8px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:800;color:#4f8cff">${totalShifts} shifts</span>
+      <span style="font-size:11px;color:var(--muted)">·</span>
+      <span style="font-size:11px;font-weight:800;color:#32d583">${fmtHours(totalH)}</span>
+    </div>
+    ${grid}
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+      ${legend}
+      <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)">
+        <span style="width:10px;height:10px;border-radius:2px;background:rgba(50,213,131,.25);border:1px solid rgba(50,213,131,.5);display:inline-block"></span>Congé
+      </span>
+    </div>
+  </div>`;
+}
+
+function renderHoursChart(userId){
+  const now = new Date();
+  const NB = 12;
+  const months = Array.from({length:NB},(_,i)=>{
+    const d = new Date(now.getFullYear(), now.getMonth()-(NB-1)+i, 1);
+    return { y:d.getFullYear(), m:d.getMonth(), label:d.toLocaleDateString("fr-FR",{month:"short"}) };
+  });
+  const contract = 35*60;
+  const data = months.map(({y,m,label})=>{
+    const ym = `${y}-${String(m+1).padStart(2,"0")}`;
+    const mins = state.shifts.filter(s=>s.userId===userId&&s.date.startsWith(ym)).reduce((acc,s)=>{
+      const [sh,sm]=s.start.split(":").map(Number);
+      let [eh,em]=s.end.split(":").map(Number);
+      let mn=(eh*60+em)-(sh*60+sm); if(mn<0) mn+=24*60;
+      return acc+mn;
+    },0);
+    const otMins = state.overtime.filter(o=>o.userId===userId&&o.status==="approved"&&o.date.startsWith(ym)).reduce((a,o)=>a+o.minutes,0);
+    return {label, mins, otMins, total:mins+otMins, ym};
+  });
+  const maxMins = Math.max(...data.map(d=>d.total), contract, 1);
+
+  // Tendance : moyenne des 3 derniers mois vs 3 précédents
+  const recent3 = data.slice(-3).reduce((a,d)=>a+d.total,0)/3;
+  const prev3   = data.slice(-6,-3).reduce((a,d)=>a+d.total,0)/3;
+  const trend = prev3>0 ? Math.round((recent3-prev3)/prev3*100) : 0;
+  const trendColor = trend>5?"#ff4f6d":trend<-5?"#32d583":"#ff9f43";
+  const trendIcon  = trend>5?"↗️":trend<-5?"↘️":"→";
+
+  // Total annuel
+  const yearTotal = data.reduce((a,d)=>a+d.total,0);
+  const yearOT    = data.reduce((a,d)=>a+d.otMins,0);
+
+  const bars = data.map((d,i)=>{
+    const isNow = i===NB-1;
+    const hasFuture = d.total===0;
+    const pct   = Math.round(d.mins/maxMins*100);
+    const otPct = Math.round(d.otMins/maxMins*100);
+    const over  = d.total > contract;
+    const color = over?"#ff4f6d":isNow?"#4f8cff":"rgba(79,140,255,.45)";
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+      <div style="font-size:9px;font-weight:800;color:${over?"#ff4f6d":isNow?"#4f8cff":"var(--muted)"};min-height:13px;text-align:center">${d.total?fmtHours(d.total):""}</div>
+      <div style="width:100%;flex:1;border-radius:6px;background:rgba(255,255,255,.05);display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;min-height:0;position:relative">
+        ${hasFuture?`<div style="width:100%;height:100%;background:repeating-linear-gradient(45deg,rgba(255,255,255,.03) 0,rgba(255,255,255,.03) 2px,transparent 2px,transparent 6px)"></div>`:""}
+        ${d.mins?`<div style="width:100%;height:${pct}%;background:${color};min-height:3px;transition:height .6s ease ${i*30}ms;border-radius:4px 4px 0 0"></div>`:""}
+        ${d.otMins?`<div style="width:100%;height:${otPct}%;background:#a855f7;min-height:2px"></div>`:""}
+        ${isNow?`<div style="position:absolute;inset:0;border:1.5px solid rgba(79,140,255,.5);border-radius:6px;pointer-events:none"></div>`:""}
+      </div>
+      <div style="font-size:9px;color:${isNow?"var(--text)":"var(--muted)"};font-weight:${isNow?"900":"400"}">${d.label}</div>
+    </div>`;
+  }).join("");
+
+  // Ligne contrat (ligne pointillée en SVG relatif)
+  const contractPct = Math.round(contract/maxMins*100);
+
+  return `<div class="carditem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h3 style="margin:0">📈 Mes heures</h3>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;color:${trendColor};font-weight:800">${trendIcon} ${trend>0?"+":""}${trend}%</span>
+        <span class="muted" style="font-size:11px">12 mois</span>
+      </div>
+    </div>
+
+    <!-- KPIs rapides -->
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div style="flex:1;background:rgba(79,140,255,.1);border:1px solid rgba(79,140,255,.25);border-radius:10px;padding:8px;text-align:center">
+        <div style="font-size:15px;font-weight:900;color:#4f8cff">${fmtHours(yearTotal)}</div>
+        <div style="font-size:10px;color:var(--muted)">Total 12 mois</div>
+      </div>
+      <div style="flex:1;background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.25);border-radius:10px;padding:8px;text-align:center">
+        <div style="font-size:15px;font-weight:900;color:#a855f7">${yearOT?fmtHours(yearOT):"0h"}</div>
+        <div style="font-size:10px;color:var(--muted)">Heures supp</div>
+      </div>
+      <div style="flex:1;background:rgba(50,213,131,.1);border:1px solid rgba(50,213,131,.25);border-radius:10px;padding:8px;text-align:center">
+        <div style="font-size:15px;font-weight:900;color:#32d583">${fmtHours(Math.round(yearTotal/12)||0)}</div>
+        <div style="font-size:10px;color:var(--muted)">Moy / mois</div>
+      </div>
+    </div>
+
+    <!-- Graphique barres -->
+    <div style="position:relative">
+      <!-- Ligne de contrat -->
+      <div style="position:absolute;left:0;right:0;bottom:calc(${contractPct}% + 16px);height:1px;background:rgba(255,196,0,.4);pointer-events:none;z-index:1">
+        <span style="position:absolute;right:0;top:-12px;font-size:9px;color:#ff9f43;font-weight:800">35h</span>
+      </div>
+      <div style="display:flex;gap:4px;height:100px;align-items:flex-end">
+        ${bars}
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
+      <span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:#4f8cff;display:inline-block"></span>Planifié</span>
+      <span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:#a855f7;display:inline-block"></span>Heures supp</span>
+      <span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px"><span style="width:8px;height:1px;background:rgba(255,196,0,.7);display:inline-block"></span>Contrat 35h</span>
+    </div>
+  </div>`;
+}
+
 function viewProfileAgent(){
   const u=me(), p=state.profiles[u.id]||{userId:u.id};
   const myNotifs=(state.notifications||[]).filter(n=>n.userId===u.id).slice().reverse();
   return `
+    ${renderHoursChart(u.id)}
     ${myNotifs.length?`
     <div class="carditem">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -3869,6 +4048,20 @@ function attachHandlers(tabId){
     document.getElementById("btnViewMonth")?.addEventListener("click",()=>{
       state.ui=state.ui||{}; state.ui.calendarView="month"; saveState(); renderTab("planning");
     });
+    document.getElementById("btnViewYear")?.addEventListener("click",()=>{
+      state.ui=state.ui||{}; state.ui.calendarView="year"; saveState(); renderTab("planning");
+    });
+    document.getElementById("btnYearPrev")?.addEventListener("click",()=>{
+      state.ui=state.ui||{}; const cur=state.ui.calendarYM?.y||new Date().getFullYear();
+      state.ui.calendarYM={y:cur-1,m:0}; saveState(); renderTab("planning");
+    });
+    document.getElementById("btnYearNext")?.addEventListener("click",()=>{
+      state.ui=state.ui||{}; const cur=state.ui.calendarYM?.y||new Date().getFullYear();
+      state.ui.calendarYM={y:cur+1,m:0}; saveState(); renderTab("planning");
+    });
+    document.getElementById("btnViewYear")?.addEventListener("click",()=>{
+      state.ui=state.ui||{}; state.ui.calendarView="year"; saveState(); renderTab("planning");
+    });
     document.getElementById("btnWeekPrev")?.addEventListener("click",()=>{
       state.ui=state.ui||{}; state.ui.weekOffset=(state.ui.weekOffset||0)-1; saveState(); renderTab("planning");
     });
@@ -4598,6 +4791,75 @@ function getCalUnit(mode,u){
 function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
 
 // ── Vue semaine ───────────────────────────────────────────────────────────────
+function renderYearView(userId){
+  const now = new Date();
+  const year = now.getFullYear();
+  const todayIso = iso(now);
+  const shiftColors = {Matin:"#4f8cff", Soir:"#ff9f43", Nuit:"#a855f7", Journée:"#32d583"};
+  const months = Array.from({length:12},(_,m)=>m);
+
+  const monthsHtml = months.map(m=>{
+    const firstDay = new Date(year,m,1);
+    const daysInMonth = new Date(year,m+1,0).getDate();
+    const startDow = (firstDay.getDay()+6)%7; // Monday=0
+    const monthLabel = firstDay.toLocaleDateString("fr-FR",{month:"long"});
+
+    // Build cells
+    let cells = [];
+    for(let i=0;i<startDow;i++) cells.push(null);
+    for(let d=1;d<=daysInMonth;d++) cells.push(d);
+    // Pad to full weeks
+    while(cells.length%7!==0) cells.push(null);
+
+    const cellsHtml = cells.map(d=>{
+      if(!d) return `<div></div>`;
+      const di = `${year}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      const shift = state.shifts.find(s=>s.userId===userId&&s.date===di);
+      const isToday = di===todayIso;
+      const dw = new Date(di+"T00:00:00").getDay();
+      const isWE = dw===0||dw===6;
+      const bg = shift ? (shiftColors[shift.label]||"#4f8cff") : "transparent";
+      const border = isToday ? "2px solid #32d583" : "1px solid transparent";
+      const opacity = isWE && !shift ? "0.4" : "1";
+      return `<div title="${shift?shift.label+" "+shift.start+"–"+shift.end:di}" style="
+        aspect-ratio:1;border-radius:4px;background:${bg};border:${border};
+        opacity:${opacity};cursor:${shift?"pointer":"default"};
+        display:flex;align-items:center;justify-content:center;
+        font-size:8px;font-weight:900;color:rgba(255,255,255,.9);
+      ">${isToday?"·":""}</div>`;
+    }).join("");
+
+    const myShiftsCount = state.shifts.filter(s=>s.userId===userId&&s.date.startsWith(`${year}-${String(m+1).padStart(2,"0")}`)).length;
+
+    return `<div>
+      <div style="font-size:11px;font-weight:800;color:var(--muted);margin-bottom:4px;text-transform:capitalize;display:flex;justify-content:space-between">
+        <span>${monthLabel}</span>
+        ${myShiftsCount?`<span style="color:var(--primary)">${myShiftsCount}j</span>`:""}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+        ${cellsHtml}
+      </div>
+    </div>`;
+  }).join("");
+
+  const totalShifts = state.shifts.filter(s=>s.userId===userId&&s.date.startsWith(year.toString())).length;
+  const shiftTypes = Object.entries(shiftColors).map(([label,color])=>{
+    const count = state.shifts.filter(s=>s.userId===userId&&s.date.startsWith(year.toString())&&s.label===label).length;
+    return count ? `<span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:3px;background:${color};display:inline-block"></span>${label} (${count})</span>` : "";
+  }).filter(Boolean).join("");
+
+  return `<div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:14px;font-weight:900">📅 ${year}</div>
+      <div style="font-size:12px;color:var(--primary);font-weight:800">${totalShifts} shifts</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${shiftTypes}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+      ${monthsHtml}
+    </div>
+  </div>`;
+}
+
 function renderWeekView({meId, unit}){
   state.ui=state.ui||{};
   const today=new Date();
