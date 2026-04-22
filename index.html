@@ -105,6 +105,34 @@ textarea{min-height:92px;resize:vertical}
 .hint{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .pill{ font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); background: rgba(255,255,255,.03); color:var(--muted); cursor:pointer; }
 
+/* ── Écran de verrouillage ───────────────────────────────────────────────────*/
+.lock-screen{
+  position:fixed; inset:0; z-index:999;
+  background: radial-gradient(900px 700px at 30% 20%, rgba(79,140,255,.25), transparent 60%),
+              var(--bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:16px; padding:24px;
+  animation:loginFadeIn .25s ease;
+}
+.lock-avatar{
+  width:70px; height:70px; border-radius:22px;
+  display:grid; place-items:center;
+  font-weight:900; font-size:26px;
+  box-shadow:0 8px 28px rgba(0,0,0,.4);
+}
+.lock-name{ font-size:18px; font-weight:900; }
+.lock-sub{ color:var(--muted); font-size:13px; }
+.lock-card{
+  width:min(320px,100%);
+  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
+  border:1px solid var(--line); border-radius:22px;
+  padding:20px; box-shadow:0 16px 48px rgba(0,0,0,.45);
+  display:flex; flex-direction:column; gap:10px;
+}
+.lock-icon{
+  font-size:36px; text-align:center; margin-bottom:4px;
+}
+
 /* ── Écran de connexion ──────────────────────────────────────────────────────*/
 .login-wrap{
   min-height:100vh; display:flex; flex-direction:column;
@@ -1926,6 +1954,7 @@ function render(){
   if(!state.session?.userId){ root.appendChild(tplLogin.content.cloneNode(true)); setupLogin(); return; }
   root.appendChild(tplShell.content.cloneNode(true));
   setupShell(); renderTab(currentTab); bindKeyboardFix();
+  resetIdleTimer();
 }
 
 function setupLogin(){
@@ -3580,6 +3609,22 @@ function viewAccount(){
       <div class="field" style="margin-top:10px"><label>Confirmer</label><input type="password" id="newPass2" placeholder="Confirmer le mot de passe"/></div>
       <button class="btn primary" id="btnChangePass" style="margin-top:8px">Mettre à jour</button>
       <div class="hr"></div>
+      <div class="hr"></div>
+      <div class="section-title" style="margin-bottom:8px">🔒 Verrouillage automatique</div>
+      <div class="muted" style="font-size:12px;margin-bottom:10px">Déconnexion automatique après une période d'inactivité.</div>
+      <div class="field">
+        <label>Durée d'inactivité</label>
+        <select id="autoLockSelect">
+          <option value="0"  ${(state.session.autoLockMinutes||0)===0 ?"selected":""}>Désactivé</option>
+          <option value="2"  ${(state.session.autoLockMinutes||0)===2 ?"selected":""}>2 minutes (test)</option>
+          <option value="5"  ${(state.session.autoLockMinutes||0)===5 ?"selected":""}>5 minutes</option>
+          <option value="10" ${(state.session.autoLockMinutes||0)===10?"selected":""}>10 minutes</option>
+          <option value="15" ${(state.session.autoLockMinutes||0)===15?"selected":""}>15 minutes</option>
+          <option value="30" ${(state.session.autoLockMinutes||0)===30?"selected":""}>30 minutes</option>
+        </select>
+      </div>
+      <button class="btn primary" id="btnSaveAutoLock" style="margin-top:8px">Enregistrer</button>
+      <div class="hr"></div>
       <div class="section-title" style="margin-bottom:8px">⭐ Onglet de démarrage</div>
       <div class="muted" style="margin-bottom:10px;font-size:12px">L'onglet qui s'ouvre automatiquement à la connexion.</div>
       <div class="grid2" style="grid-template-columns:repeat(${isDirection()?5:4},1fr)">
@@ -4138,6 +4183,14 @@ function attachHandlers(tabId){
         });
         toast("Onglet favori : "+btn.textContent.trim()+" ⭐");
       });
+    });
+
+    document.getElementById("btnSaveAutoLock")?.addEventListener("click",()=>{
+      const val = parseInt(document.getElementById("autoLockSelect")?.value||"0",10);
+      state.session.autoLockMinutes = val;
+      saveState();
+      resetIdleTimer();
+      toast(val===0 ? "Verrouillage désactivé" : `Verrouillage dans ${val} min ✅`);
     });
 
     document.getElementById("btnDisableBio")?.addEventListener("click",()=>{
@@ -5100,6 +5153,95 @@ function exportWeeklyReport(){
   if(w){ w.document.write(html); w.document.close(); }
   else toast("Autorisez les pop-ups pour exporter","error");
 }
+
+// ── Verrouillage automatique ─────────────────────────────────────────────────
+let idleTimer = null;
+let lockScreenActive = false;
+
+function resetIdleTimer(){
+  clearTimeout(idleTimer);
+  const mins = state.session?.autoLockMinutes||0;
+  if(!mins || !state.session?.userId) return;
+  idleTimer = setTimeout(lockScreen, mins * 60 * 1000);
+}
+
+function lockScreen(){
+  if(lockScreenActive || !state.session?.userId) return;
+  lockScreenActive = true;
+  clearTimeout(idleTimer);
+
+  const u = state.users.find(x=>x.id===state.session.userId);
+  const overlay = document.createElement("div");
+  overlay.className = "lock-screen";
+  overlay.id = "lockScreen";
+
+  overlay.innerHTML = `
+    <div class="lock-avatar" style="background:${avatarColor(u?.id||"u1")}">${avatarInitials(u?.name||"?")}</div>
+    <div class="lock-name">${u?.name||""}</div>
+    <div class="lock-sub">Session verrouillée</div>
+    <div class="lock-card">
+      <div class="lock-icon">🔒</div>
+      <div class="login-input-wrap" style="margin-bottom:0">
+        <span class="login-input-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        </span>
+        <input id="lockPassword" type="password" placeholder="Mot de passe" autocomplete="current-password" style="font-size:14px"/>
+      </div>
+      <div class="login-error" id="lockError" style="display:none">Mot de passe incorrect.</div>
+      <button class="btn primary" id="btnUnlock">Déverrouiller</button>
+      ${hasBiometricForUser(u?.id||"")?`<button class="btn-biometric" id="btnUnlockBio">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="20" height="20"><path d="M12 2C8.5 2 6 4.5 6 8v1M12 2c3.5 0 6 2.5 6 6v1"/><path d="M3 11c0 5 4 9 9 9s9-4 9-9"/><path d="M8 11c0 2.2 1.8 4 4 4s4-1.8 4-4"/><path d="M12 11v4"/></svg>
+        Face ID / Touch ID
+      </button>`:""}
+      <button class="btn ghost" id="btnLockLogout" style="color:var(--muted);font-size:12px">Changer d'utilisateur</button>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const passInput = document.getElementById("lockPassword");
+  const errEl = document.getElementById("lockError");
+
+  function tryUnlock(){
+    const pass = (passInput?.value||"").trim();
+    if(u && pass === u.password){
+      unlockScreen();
+    } else {
+      errEl.style.display="block";
+      passInput.value="";
+      passInput.focus();
+      overlay.querySelector(".lock-card")?.classList.add("shake");
+      setTimeout(()=>overlay.querySelector(".lock-card")?.classList.remove("shake"),400);
+    }
+  }
+
+  document.getElementById("btnUnlock")?.addEventListener("click", tryUnlock);
+  passInput?.addEventListener("keydown", e=>{ if(e.key==="Enter") tryUnlock(); });
+
+  document.getElementById("btnUnlockBio")?.addEventListener("click", async()=>{
+    const userId = await authenticateBiometric();
+    if(userId === state.session.userId) unlockScreen();
+    else{ errEl.textContent="Biométrie échouée."; errEl.style.display="block"; }
+  });
+
+  document.getElementById("btnLockLogout")?.addEventListener("click",()=>{
+    unlockScreen();
+    state.session={role:"agent",userId:""};
+    saveState(); navStack=[]; currentTab="planning"; render();
+  });
+
+  setTimeout(()=>passInput?.focus(), 200);
+}
+
+function unlockScreen(){
+  lockScreenActive = false;
+  document.getElementById("lockScreen")?.remove();
+  resetIdleTimer();
+}
+
+// Écouter l'activité utilisateur
+["mousemove","mousedown","keydown","touchstart","scroll","click"].forEach(evt=>{
+  document.addEventListener(evt, ()=>{ if(!lockScreenActive) resetIdleTimer(); }, {passive:true});
+});
 
 // ── WebAuthn (Face ID / Touch ID) ────────────────────────────────────────────
 const WEBAUTHN_KEY = 'ehpad_webauthn';
