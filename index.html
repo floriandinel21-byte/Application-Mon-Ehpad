@@ -260,7 +260,7 @@ textarea{min-height:92px;resize:vertical}
 .iconbtn{ width:38px;height:38px;border-radius:12px; border:1px solid var(--line); background: rgba(255,255,255,.04); display:grid;place-items:center; cursor:pointer; color:var(--text); }
 .iconbtn svg{width:20px;height:20px}
 .iconbtn.primary{ background: rgba(79,140,255,.18); border-color: rgba(79,140,255,.35); }
-.main{ flex:1; overflow:auto; padding:12px 12px 148px; display:flex; flex-direction:column; gap:16px; }
+.main{ flex:1; overflow:auto; padding:16px 14px 148px; display:flex; flex-direction:column; gap:18px; }
 .main.tab-enter{ animation: tabFadeIn .18s ease forwards; }
 @keyframes tabFadeIn{
   from{ opacity:0; transform:translateY(8px); }
@@ -273,7 +273,7 @@ textarea{min-height:92px;resize:vertical}
 .tab span{font-size:11px}
 
 /* ── Cards ───────────────────────────────────────────────────────────────────*/
-.cardlist{display:flex;flex-direction:column;gap:10px}
+.cardlist{display:flex;flex-direction:column;gap:12px}
 .carditem{ background: rgba(255,255,255,.03); border:1px solid var(--line); border-radius: var(--radius); padding:14px; }
 .carditem h3{margin:0 0 8px;font-size:14px}
 .muted{color:var(--muted);font-size:12px}
@@ -2904,7 +2904,7 @@ function viewSwapsAgent(){
         <div class="row gap">${filterBtns}</div>
       </div>
       <div class="muted" style="margin-bottom:10px">${allItems.length} demande(s)</div>
-      <div class="cardlist">
+      <div class="cardlist" style="gap:14px">
         ${pageItems.length ? pageItems.map(r=>r._kind==="swap"?swapCard(r,u.id):leaveCard(r)).join("") : `<div class="muted">Aucune demande pour l'instant.</div>`}
       </div>
       ${totalPages>1?`<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px">
