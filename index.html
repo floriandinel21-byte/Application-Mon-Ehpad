@@ -175,6 +175,33 @@ textarea{min-height:92px;resize:vertical}
 [data-theme="light"] .login-card{ background:rgba(255,255,255,.8); }
 [data-theme="light"] .login-hint-card{ background:rgba(255,255,255,.6); }
 
+.btn-biometric{
+  width:100%; margin-top:10px; padding:13px 14px;
+  border-radius:14px; border:1px solid rgba(79,140,255,.4);
+  background:rgba(79,140,255,.1); color:#cfe0ff;
+  font-weight:700; font-size:14px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  transition:background .15s, transform .1s;
+}
+.btn-biometric:hover{ background:rgba(79,140,255,.2); }
+.btn-biometric:active{ transform:scale(.98); }
+.btn-biometric svg{ flex-shrink:0; }
+
+.login-divider{
+  display:flex; align-items:center; gap:10px;
+  margin:10px 0; color:var(--muted); font-size:12px;
+}
+.login-divider::before,.login-divider::after{
+  content:""; flex:1; height:1px; background:var(--line);
+}
+
+.biometric-badge{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700;
+  background:rgba(50,213,131,.12); border:1px solid rgba(50,213,131,.35);
+  color:#c8f6df; margin:8px auto 0; display:flex; justify-content:center;
+}
+
 /* ── App shell ───────────────────────────────────────────────────────────────*/
 .app{ height:100vh; width:min(420px, 100%); margin:0 auto; background: rgba(0,0,0,.12); display:flex; flex-direction:column; border-left:1px solid rgba(255,255,255,.06); border-right:1px solid rgba(255,255,255,.06); }
 .statusbar{height:12px}
@@ -776,6 +803,22 @@ textarea{min-height:92px;resize:vertical}
         <div class="login-error" id="loginError">Identifiant ou mot de passe incorrect.</div>
 
         <button class="btn primary" id="btnLogin" style="margin-top:4px;font-size:14px">Se connecter</button>
+
+        <div id="biometricSection" style="display:none">
+          <div class="login-divider">ou</div>
+          <button class="btn-biometric" id="btnBiometric">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="22" height="22">
+              <path d="M12 2C8.5 2 6 4.5 6 8v1M12 2c3.5 0 6 2.5 6 6v1"/>
+              <path d="M3 11c0 5 4 9 9 9s9-4 9-9"/>
+              <path d="M8 11c0 2.2 1.8 4 4 4s4-1.8 4-4"/>
+              <path d="M12 11v4"/>
+            </svg>
+            <span id="btnBiometricLabel">Face ID / Touch ID</span>
+          </button>
+          <div class="biometric-badge" id="biometricBadge" style="display:none">
+            ✅ <span id="biometricUser"></span>
+          </div>
+        </div>
       </div>
 
       <details class="login-hint-card">
@@ -1932,14 +1975,36 @@ function setupLogin(){
     // Connexion réussie
     btn.style.opacity="0.7"; btn.disabled=true;
     btn.textContent=`Bonjour, ${user.name.split(" ")[0]} ! 👋`;
-    setTimeout(()=>{
-      state.session.role=user.role;
-      state.session.userId=user.id;
+
+    // Proposer d'activer la biométrie si dispo et pas encore enregistrée
+    const offerBio = isWebAuthnAvailable() &&
+                     window.PublicKeyCredential &&
+                     !hasBiometricForUser(user.id);
+
+    if(offerBio){
+      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(async available=>{
+        if(available){
+          const ok = confirm(`Activer Face ID / Touch ID pour ${user.name.split(" ")[0]} ?\nTu pourras te connecter sans mot de passe la prochaine fois.`);
+          if(ok){
+            const registered = await registerBiometric(user.id);
+            if(registered) toast("Face ID / Touch ID activé ✅");
+            else toast("Activation annulée ou non supportée","info");
+          }
+        }
+        finishLogin(user);
+      }).catch(()=> finishLogin(user));
+    } else {
+      setTimeout(()=> finishLogin(user), 400);
+    }
+
+    function finishLogin(u){
+      state.session.role=u.role;
+      state.session.userId=u.id;
       state.session.lastLogin=new Date().toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"});
       saveState();
-      currentTab=state.session.favoriteTab||(user.role==="direction"?"dashboard_dir":"planning");
-      render(); toast(`Bonjour ${user.name.split(" ")[0]} ✅`);
-    }, 400);
+      currentTab=state.session.favoriteTab||(u.role==="direction"?"dashboard_dir":"planning");
+      render(); toast(`Bonjour ${u.name.split(" ")[0]} ✅`);
+    }
   }
 
   btn?.addEventListener("click", tryLogin);
@@ -1951,6 +2016,60 @@ function setupLogin(){
     if(!confirm("Réinitialiser toutes les données de démo ?\nCela rechargera l'application avec les comptes par défaut.")) return;
     localStorage.removeItem(LS_KEY);
     location.reload();
+  });
+
+  // ── Section biométrique ──────────────────────────────────────────────────────
+  const bioSection = document.getElementById("biometricSection");
+  const btnBio     = document.getElementById("btnBiometric");
+  const bioLabel   = document.getElementById("btnBiometricLabel");
+  const bioBadge   = document.getElementById("biometricBadge");
+  const bioUser    = document.getElementById("biometricUser");
+
+  // Détecter si biométrie disponible + déjà enregistrée
+  if(isWebAuthnAvailable() && window.PublicKeyCredential){
+    window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(available=>{
+      if(!available) return;
+      bioSection.style.display = "";
+      if(hasBiometricRegistered()){
+        // Afficher les comptes enregistrés
+        const store = getWebAuthnStore();
+        const names = Object.values(store).map(v=>v.name).join(", ");
+        bioLabel.textContent = `Connexion biométrique (${names})`;
+      } else {
+        bioLabel.textContent = "Face ID / Touch ID — non configuré";
+        btnBio.style.opacity = "0.5";
+        btnBio.title = "Connecte-toi d'abord avec ton mot de passe pour activer la biométrie";
+      }
+    }).catch(()=>{});
+  }
+
+  btnBio?.addEventListener("click", async ()=>{
+    if(!hasBiometricRegistered()){
+      toast("Connecte-toi d'abord avec ton mot de passe pour activer la biométrie","info");
+      return;
+    }
+    btnBio.disabled = true;
+    bioLabel.textContent = "Vérification…";
+    const userId = await authenticateBiometric();
+    if(userId){
+      const user = state.users.find(u=>u.id===userId);
+      if(user){
+        bioBadge.style.display = "flex";
+        bioUser.textContent = user.name;
+        setTimeout(()=>{
+          state.session.role = user.role;
+          state.session.userId = user.id;
+          state.session.lastLogin = new Date().toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"});
+          saveState();
+          currentTab = state.session.favoriteTab||(user.role==="direction"?"dashboard_dir":"planning");
+          render(); toast(`Bonjour ${user.name.split(" ")[0]} ✅`);
+        }, 500);
+      }
+    } else {
+      toast("Authentification biométrique échouée ❌","error");
+      btnBio.disabled = false;
+      bioLabel.textContent = "Face ID / Touch ID";
+    }
   });
 
   // Focus automatique
@@ -3451,6 +3570,11 @@ function viewAccount(){
       </div>
       <div class="muted" style="margin-top:10px">En production : connexion sécurisée par e-mail (Firebase Auth).</div>
       <div class="hr"></div>
+      ${(isWebAuthnAvailable()&&hasBiometricForUser(state.session.userId))?`
+      <div class="section-title" style="margin-bottom:8px">🔐 Biométrie</div>
+      <div class="muted" style="font-size:12px;margin-bottom:10px">Face ID / Touch ID activé sur cet appareil.</div>
+      <button class="btn ghost" id="btnDisableBio" style="color:var(--danger);border-color:rgba(255,79,109,.3)">Désactiver la biométrie</button>
+      <div class="hr"></div>`:""}
       <div class="section-title" style="margin-bottom:8px">🔑 Changer le mot de passe</div>
       <div class="field"><label>Nouveau mot de passe</label><input type="password" id="newPass1" placeholder="Nouveau mot de passe"/></div>
       <div class="field" style="margin-top:10px"><label>Confirmer</label><input type="password" id="newPass2" placeholder="Confirmer le mot de passe"/></div>
@@ -4014,6 +4138,14 @@ function attachHandlers(tabId){
         });
         toast("Onglet favori : "+btn.textContent.trim()+" ⭐");
       });
+    });
+
+    document.getElementById("btnDisableBio")?.addEventListener("click",()=>{
+      if(!confirm("Désactiver Face ID / Touch ID pour ce compte ?")) return;
+      const store = getWebAuthnStore();
+      delete store[state.session.userId];
+      saveWebAuthnStore(store);
+      toast("Biométrie désactivée"); renderTab("compte");
     });
 
     document.getElementById("btnChangePass")?.addEventListener("click",()=>{
@@ -4967,6 +5099,114 @@ function exportWeeklyReport(){
   const w = window.open("","_blank");
   if(w){ w.document.write(html); w.document.close(); }
   else toast("Autorisez les pop-ups pour exporter","error");
+}
+
+// ── WebAuthn (Face ID / Touch ID) ────────────────────────────────────────────
+const WEBAUTHN_KEY = 'ehpad_webauthn';
+
+function isWebAuthnAvailable(){
+  return location.protocol === 'https:' ||
+         location.hostname === 'localhost' ||
+         location.hostname === '127.0.0.1';
+}
+
+function getWebAuthnStore(){
+  try{ return JSON.parse(localStorage.getItem(WEBAUTHN_KEY)||'{}'); }
+  catch{ return {}; }
+}
+function saveWebAuthnStore(data){
+  localStorage.setItem(WEBAUTHN_KEY, JSON.stringify(data));
+}
+
+function bufferToBase64(buffer){
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+}
+function base64ToBuffer(b64){
+  const bin = atob(b64);
+  const buf = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+  return buf.buffer;
+}
+
+async function registerBiometric(userId){
+  if(!isWebAuthnAvailable()) return false;
+  if(!window.PublicKeyCredential) return false;
+  const user = state.users.find(u=>u.id===userId);
+  if(!user) return false;
+  try{
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const rpId = location.hostname || 'localhost';
+    const credential = await navigator.credentials.create({
+      publicKey:{
+        challenge,
+        rp:{ name:'EHPAD Staff', id:rpId },
+        user:{
+          id: new TextEncoder().encode(userId),
+          name: user.login||user.name,
+          displayName: user.name,
+        },
+        pubKeyCredParams:[{alg:-7,type:'public-key'},{alg:-257,type:'public-key'}],
+        authenticatorSelection:{
+          authenticatorAttachment:'platform',
+          userVerification:'required',
+          residentKey:'preferred',
+        },
+        timeout:60000,
+        attestation:'none',
+      }
+    });
+    if(!credential) return false;
+    const store = getWebAuthnStore();
+    store[userId] = {
+      credId: bufferToBase64(credential.rawId),
+      name: user.name,
+    };
+    saveWebAuthnStore(store);
+    return true;
+  } catch(e){
+    console.warn('WebAuthn register error:', e);
+    return false;
+  }
+}
+
+async function authenticateBiometric(){
+  if(!isWebAuthnAvailable()) return null;
+  if(!window.PublicKeyCredential) return null;
+  const store = getWebAuthnStore();
+  const entries = Object.entries(store);
+  if(!entries.length) return null;
+  try{
+    const allowCredentials = entries.map(([,v])=>({
+      id: base64ToBuffer(v.credId),
+      type:'public-key',
+    }));
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const assertion = await navigator.credentials.get({
+      publicKey:{
+        challenge,
+        rpId: location.hostname||'localhost',
+        allowCredentials,
+        userVerification:'required',
+        timeout:60000,
+      }
+    });
+    if(!assertion) return null;
+    const usedCredId = bufferToBase64(assertion.rawId);
+    const match = entries.find(([,v])=>v.credId===usedCredId);
+    return match ? match[0] : null; // returns userId
+  } catch(e){
+    console.warn('WebAuthn auth error:', e);
+    return null;
+  }
+}
+
+function hasBiometricRegistered(){
+  const store = getWebAuthnStore();
+  return Object.keys(store).length > 0;
+}
+
+function hasBiometricForUser(userId){
+  return !!getWebAuthnStore()[userId];
 }
 
 // ── Thème ────────────────────────────────────────────────────────────────────
