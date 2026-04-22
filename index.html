@@ -2925,7 +2925,7 @@ function swapCard(r, meId){
     pending:  {cls:"warn",icon:"⏳", label:"En attente", bg:"rgba(255,196,0,.07)",   border:"rgba(255,196,0,.3)"}
   };
   const s = statusCfg[r.status]||statusCfg.pending;
-  return `<div class="carditem" style="background:${s.bg};border-color:${s.border};padding:14px">
+  return `<div class="carditem" style="background:${s.bg};border-color:${s.border};padding:14px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px">
       <div>
         <div style="font-weight:850;font-size:13px">🔄 Échange · ${isRequester?"Tu as demandé":"Demandé par "+rN}</div>
@@ -2957,7 +2957,7 @@ function leaveCard(r){
   };
   const s = statusCfg[r.status]||statusCfg.pending;
   const days = r.from&&r.to ? daysBetween(r.from,r.to) : "—";
-  return `<div class="carditem" style="background:${s.bg};border-color:${s.border};padding:14px">
+  return `<div class="carditem" style="background:${s.bg};border-color:${s.border};padding:14px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px">
       <div>
         <div style="font-weight:850;font-size:13px">🏖️ ${r.type||"Congés"}</div>
