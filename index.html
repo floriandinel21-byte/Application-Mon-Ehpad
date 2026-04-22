@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>EHPAD Staff – Démo Web (locale)</title>
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
 
 /* ── Thème sombre (défaut) ───────────────────────────────────────────────────*/
@@ -1157,6 +1160,103 @@ const MEDICATIONS_LIST = [
 */
 
 const LS_KEY = "ehpad_demo_state_v6";
+const FB_CONFIG_KEY = "ehpad_firebase_config";
+
+// ── Firebase ──────────────────────────────────────────────────────────────────
+let firebaseApp = null;
+let firebaseDb  = null;
+let fbListener  = null;
+let fbSyncEnabled = false;
+let fbSyncing = false; // évite la boucle d'écriture lors de la réception
+
+function getFirebaseConfig(){
+  try{ return JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||"null"); }
+  catch{ return null; }
+}
+
+function initFirebase(config){
+  try{
+    if(firebaseApp) firebaseApp.delete().catch(()=>{});
+    firebaseApp = firebase.initializeApp(config, "ehpad_" + Date.now());
+    firebaseDb  = firebase.database(firebaseApp);
+    fbSyncEnabled = true;
+    startFirebaseListener();
+    return true;
+  } catch(e){
+    console.error("Firebase init error:", e);
+    fbSyncEnabled = false;
+    return false;
+  }
+}
+
+function startFirebaseListener(){
+  if(!firebaseDb) return;
+  if(fbListener) fbListener(); // détache l'ancien listener
+  const ref = firebaseDb.ref("ehpad_state");
+  fbListener = ref.on("value", snap=>{
+    if(fbSyncing) return; // ignore si c'est nous qui écrivons
+    const remote = snap.val();
+    if(!remote) return;
+    // Merge: garde la session locale (identifiants), prend le reste du remote
+    const localSession = state.session;
+    try{
+      state = JSON.parse(remote);
+      state.session = localSession;
+      localStorage.setItem(LS_KEY, JSON.stringify(state));
+      if(document.getElementById("main")) renderTab(currentTab);
+      showSyncIndicator("synced");
+    } catch(e){ console.warn("Firebase merge error:", e); }
+  }, err=>{
+    console.warn("Firebase listener error:", err);
+    showSyncIndicator("error");
+  });
+}
+
+function syncToFirebase(){
+  if(!fbSyncEnabled || !firebaseDb) return;
+  fbSyncing = true;
+  const toSave = JSON.stringify(state);
+  firebaseDb.ref("ehpad_state").set(toSave)
+    .then(()=>{ showSyncIndicator("synced"); })
+    .catch(e=>{ console.warn("Firebase write error:", e); showSyncIndicator("error"); })
+    .finally(()=>{ setTimeout(()=>{ fbSyncing=false; }, 500); });
+}
+
+function showSyncIndicator(status){
+  let ind = document.getElementById("syncIndicator");
+  if(!ind){
+    ind = document.createElement("div");
+    ind.id = "syncIndicator";
+    ind.style.cssText = "position:fixed;bottom:100px;right:12px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;z-index:400;pointer-events:none;transition:opacity .5s;";
+    document.body.appendChild(ind);
+  }
+  if(status==="synced"){
+    ind.textContent = "☁️ Synchronisé";
+    ind.style.background = "rgba(50,213,131,.2)";
+    ind.style.color = "#32d583";
+    ind.style.border = "1px solid rgba(50,213,131,.4)";
+    ind.style.opacity = "1";
+    setTimeout(()=>{ ind.style.opacity="0"; }, 2500);
+  } else if(status==="syncing"){
+    ind.textContent = "🔄 Sync…";
+    ind.style.background = "rgba(79,140,255,.2)";
+    ind.style.color = "#4f8cff";
+    ind.style.border = "1px solid rgba(79,140,255,.4)";
+    ind.style.opacity = "1";
+  } else {
+    ind.textContent = "⚠️ Sync échouée";
+    ind.style.background = "rgba(255,79,109,.2)";
+    ind.style.color = "#ff4f6d";
+    ind.style.border = "1px solid rgba(255,79,109,.4)";
+    ind.style.opacity = "1";
+  }
+}
+
+// Auto-init si config déjà sauvegardée
+const _savedFbConfig = getFirebaseConfig();
+if(_savedFbConfig && typeof firebase !== "undefined") {
+  setTimeout(()=> initFirebase(_savedFbConfig), 500);
+}
 const AVATAR_COLORS = ["#4f8cff","#32d583","#ff9f43","#ff4f6d","#a855f7"];
 
 const icons = {
@@ -1861,7 +1961,10 @@ function loadState(){
   return {session:{role:"agent",userId:"u1"},users,shifts,swapRequests,leaveRequests,overtime,profiles,messages,leaveSettings,ui:{}};
 }
 
-function saveState(){ localStorage.setItem(LS_KEY,JSON.stringify(state)); }
+function saveState(){
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+  if(fbSyncEnabled) syncToFirebase();
+}
 
 // ── État ──────────────────────────────────────────────────────────────────────
 let state=loadState();
@@ -3871,202 +3974,124 @@ function validationOTCard(r){ return `<div class="carditem">
 function viewAccount(){
   const u=me(), users=state.users.filter(x=>x.role===state.session.role);
   return `
+
+    <!-- ── CARTE 1 : Profil ──────────────────────────────────────────────── -->
     <div class="carditem">
-      <h3>Compte</h3><div class="muted">Démo locale • changer de profil</div><div class="hr"></div>
-      <div class="carditem" style="padding:12px">
-        <div class="row" style="justify-content:space-between;gap:10px;align-items:center">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:40px;height:40px;border-radius:14px;background:${avatarColor(u.id)};display:grid;place-items:center;font-weight:900;font-size:14px">${avatarInitials(u.name)}</div>
-            <div><div style="font-weight:850">${u.name}</div><div class="muted">${isDirection()?"Direction":"Agent"} • ${u.unit}</div>${state.session.lastLogin?`<div style="font-size:11px;color:var(--muted);margin-top:2px">🕐 Dernière connexion : ${state.session.lastLogin}</div>`:""}</div>
-          </div>
-          <button class="btn small danger" id="btnLogout">Déconnexion</button>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:52px;height:52px;border-radius:16px;background:${avatarColor(u.id)};display:grid;place-items:center;font-weight:900;font-size:18px;flex-shrink:0;box-shadow:0 4px 14px rgba(0,0,0,.3)">${avatarInitials(u.name)}</div>
+        <div>
+          <div style="font-weight:900;font-size:16px">${u.name}</div>
+          <div class="muted" style="font-size:12px">${isDirection()?"Direction":"Agent"} · ${u.unit}</div>
+          ${state.session.lastLogin?`<div style="font-size:11px;color:var(--muted);margin-top:2px">🕐 ${state.session.lastLogin}</div>`:""}
         </div>
       </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn danger" id="btnLogout" style="flex:1">Déconnexion</button>
+      </div>
       <div class="hr"></div>
-      <div class="section-title">Changer d'utilisateur</div>
-      <div class="field"><label>Utilisateur</label><select id="switchUser">${users.map(x=>`<option value="${x.id}" ${x.id===u.id?'selected':''}>${x.name}</option>`).join("")}</select></div>
-      <button class="btn primary" id="btnSwitchUser">Changer</button>
+      <div class="section-title" style="margin-bottom:8px">Changer d'utilisateur</div>
+      <div class="field"><select id="switchUser">${users.map(x=>`<option value="${x.id}" ${x.id===u.id?'selected':''}>${x.name}</option>`).join("")}</select></div>
+      <button class="btn primary" id="btnSwitchUser" style="margin-top:8px">Changer</button>
       <div class="hr"></div>
-      <div class="section-title">Rôle</div>
+      <div class="section-title" style="margin-bottom:8px">Rôle</div>
       <div class="grid2">
         <button class="btn ${isDirection()?'primary':'ghost'}" id="btnRoleDir">Direction</button>
         <button class="btn ${!isDirection()?'primary':'ghost'}" id="btnRoleAgent">Agent</button>
       </div>
-      <div class="muted" style="margin-top:10px">En production : connexion sécurisée par e-mail (Firebase Auth).</div>
-      <div class="hr"></div>
-      ${(isWebAuthnAvailable()&&hasBiometricForUser(state.session.userId))?`
-      <div class="section-title" style="margin-bottom:8px">🔐 Biométrie</div>
-      <div class="muted" style="font-size:12px;margin-bottom:10px">Face ID / Touch ID activé sur cet appareil.</div>
-      <button class="btn ghost" id="btnDisableBio" style="color:var(--danger);border-color:rgba(255,79,109,.3)">Désactiver la biométrie</button>
-      <div class="hr"></div>`:""}
-      <div class="section-title" style="margin-bottom:8px">🔑 Changer le mot de passe</div>
-      <div class="field"><label>Nouveau mot de passe</label><input type="password" id="newPass1" placeholder="Nouveau mot de passe"/></div>
-      <div class="field" style="margin-top:10px"><label>Confirmer</label><input type="password" id="newPass2" placeholder="Confirmer le mot de passe"/></div>
-      <button class="btn primary" id="btnChangePass" style="margin-top:8px">Mettre à jour</button>
-      <div class="hr"></div>
-      <div class="hr"></div>
-      <div class="section-title" style="margin-bottom:8px">🔒 Verrouillage automatique</div>
-      <div class="muted" style="font-size:12px;margin-bottom:10px">Déconnexion automatique après une période d'inactivité.</div>
-      <div class="field">
-        <label>Durée d'inactivité</label>
-        <select id="autoLockSelect">
-          <option value="0"  ${(state.session.autoLockMinutes||0)===0 ?"selected":""}>Désactivé</option>
-          <option value="2"  ${(state.session.autoLockMinutes||0)===2 ?"selected":""}>2 minutes (test)</option>
-          <option value="5"  ${(state.session.autoLockMinutes||0)===5 ?"selected":""}>5 minutes</option>
-          <option value="10" ${(state.session.autoLockMinutes||0)===10?"selected":""}>10 minutes</option>
-          <option value="15" ${(state.session.autoLockMinutes||0)===15?"selected":""}>15 minutes</option>
-          <option value="30" ${(state.session.autoLockMinutes||0)===30?"selected":""}>30 minutes</option>
-        </select>
+    </div>
+
+    <!-- ── CARTE 2 : Paramètres ──────────────────────────────────────────── -->
+    <div class="carditem">
+      <h3 style="margin-bottom:16px">⚙️ Paramètres</h3>
+
+      <div class="section-title" style="margin-bottom:8px">Thème</div>
+      <div class="grid2" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+        <button class="btn theme-btn ${(localStorage.getItem('ehpad_theme')||'system')==='dark'?'primary':'ghost'}" data-theme-pick="dark">🌙 Sombre</button>
+        <button class="btn theme-btn ${(localStorage.getItem('ehpad_theme')||'system')==='light'?'primary':'ghost'}" data-theme-pick="light">☀️ Clair</button>
+        <button class="btn theme-btn ${(localStorage.getItem('ehpad_theme')||'system')==='system'?'primary':'ghost'}" data-theme-pick="system">⚙️ Système</button>
       </div>
-      <button class="btn primary" id="btnSaveAutoLock" style="margin-top:8px">Enregistrer</button>
-      <div class="hr"></div>
+
+      <div class="section-title" style="margin-bottom:8px">Langue</div>
+      <div class="field" style="margin-bottom:8px">
+        <select id="langSelect" style="font-size:13px">${lang_opts}
+      </div>
+      <button class="btn primary" id="btnApplyLang" style="margin-bottom:16px">🌐 Appliquer</button>
+
       <div class="section-title" style="margin-bottom:8px">⭐ Onglet de démarrage</div>
-      <div class="muted" style="margin-bottom:10px;font-size:12px">L'onglet qui s'ouvre automatiquement à la connexion.</div>
-      <div class="grid2" style="grid-template-columns:repeat(${isDirection()?5:4},1fr)">
+      <div class="grid2" style="grid-template-columns:repeat(${isDirection()?5:4},1fr);margin-bottom:16px">
         ${(isDirection()?tabsDirection.filter(t=>t.id!=="compte"):tabsAgent.filter(t=>t.id!=="compte")).map(t=>{
           const fav=state.session.favoriteTab||null;
           const isF=fav===t.id||(fav===null&&((isDirection()&&t.id==="dashboard_dir")||(!isDirection()&&t.id==="planning")));
           return `<button class="btn ${isF?"primary":"ghost"} fav-tab-btn" data-fav="${t.id}" style="font-size:11px;padding:8px 4px">${t.label}</button>`;
         }).join("")}
       </div>
-    </div>
-    <div class="carditem">
-      <h3>Apparence</h3><div class="muted">Choisir le thème et la langue de l'application.</div><div class="hr"></div>
-      <div class="section-title" style="margin-bottom:8px">Rappels de shift</div>
-      <div class="muted" style="margin-bottom:10px;font-size:12px">
-        Reçois une notification push la <strong>veille de ton shift</strong> (entre 18h–23h) et <strong>2h avant</strong> le début.
+
+      <div class="section-title" style="margin-bottom:8px">🔒 Verrouillage automatique</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="autoLockSelect" style="flex:1">
+          <option value="0"  ${(state.session.autoLockMinutes||0)===0 ?"selected":""}>Désactivé</option>
+          <option value="2"  ${(state.session.autoLockMinutes||0)===2 ?"selected":""}>2 min (test)</option>
+          <option value="5"  ${(state.session.autoLockMinutes||0)===5 ?"selected":""}>5 minutes</option>
+          <option value="10" ${(state.session.autoLockMinutes||0)===10?"selected":""}>10 minutes</option>
+          <option value="15" ${(state.session.autoLockMinutes||0)===15?"selected":""}>15 minutes</option>
+          <option value="30" ${(state.session.autoLockMinutes||0)===30?"selected":""}>30 minutes</option>
+        </select>
+        <button class="btn small primary" id="btnSaveAutoLock" style="flex-shrink:0">OK</button>
       </div>
+
+      ${!isDirection()?`<div class="hr"></div>
+      <div class="section-title" style="margin-bottom:8px">🔔 Rappels de shift</div>
+      <div class="muted" style="font-size:12px;margin-bottom:10px">Notification la veille (18h–20h) et 1h avant si shift après 8h.</div>
       ${('Notification' in window)?`
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
-        <span style="font-size:13px">
-          Statut : ${Notification.permission==='granted'?'<span style="color:var(--success);font-weight:700">✅ Activé</span>':Notification.permission==='denied'?'<span style="color:var(--danger);font-weight:700">❌ Bloqué dans le navigateur</span>':'<span style="color:#ff9f43;font-weight:700">⏳ Non autorisé</span>'}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <span style="font-size:12px">
+          ${Notification.permission==='granted'?'<span style="color:var(--success);font-weight:700">✅ Activé</span>':Notification.permission==='denied'?'<span style="color:var(--danger);font-weight:700">❌ Bloqué</span>':'<span style="color:#ff9f43;font-weight:700">⏳ Non autorisé</span>'}
         </span>
         ${Notification.permission!=='granted'?`<button class="btn small primary" id="btnEnableReminders">Activer</button>`:`<button class="btn small ghost" id="btnTestReminder">Tester 🔔</button>`}
-      </div>`:'<div class="muted" style="font-size:12px;margin-bottom:12px">Notifications non supportées par ce navigateur.</div>'}
-      <div class="hr"></div>
-      <div class="section-title" style="margin-bottom:8px">Thème</div>
-      <div class="grid2" style="grid-template-columns:repeat(3,1fr)">
-        <button class="btn theme-btn ${(localStorage.getItem('ehpad_theme')||'system')==='dark'?'primary':'ghost'}" data-theme-pick="dark">🌙 Sombre</button>
-        <button class="btn theme-btn ${(localStorage.getItem('ehpad_theme')||'system')==='light'?'primary':'ghost'}" data-theme-pick="light">☀️ Clair</button>
-        <button class="btn theme-btn ${(localStorage.getItem('ehpad_theme')||'system')==='system'?'primary':'ghost'}" data-theme-pick="system">⚙️ Système</button>
-      </div>
-      <div class="hr"></div>
-      <div class="section-title" style="margin-bottom:8px">Langue</div>
-      <div class="muted" style="margin-bottom:10px;font-size:12px">Choisir une langue active la traduction automatique du navigateur.</div>
-      <div class="field">
-        <select id="langSelect" style="font-size:13px">
-          <option value="">🌐 Langue du navigateur (défaut)</option>
-          <option value="af">Afrikaans</option>
-          <option value="sq">Albanais</option>
-          <option value="am">Amharique</option>
-          <option value="ar">العربية — Arabe</option>
-          <option value="hy">Հայերեն — Arménien</option>
-          <option value="az">Azerbaïdjanais</option>
-          <option value="eu">Basque</option>
-          <option value="be">Biélorusse</option>
-          <option value="bn">বাংলা — Bengali</option>
-          <option value="bs">Bosnien</option>
-          <option value="bg">Bulgare</option>
-          <option value="ca">Català — Catalan</option>
-          <option value="ceb">Cebuano</option>
-          <option value="zh-CN">中文 (简体) — Chinois simplifié</option>
-          <option value="zh-TW">中文 (繁體) — Chinois traditionnel</option>
-          <option value="hr">Hrvatski — Croate</option>
-          <option value="cs">Čeština — Tchèque</option>
-          <option value="da">Dansk — Danois</option>
-          <option value="nl">Nederlands — Néerlandais</option>
-          <option value="en">English — Anglais</option>
-          <option value="eo">Esperanto</option>
-          <option value="et">Eesti — Estonien</option>
-          <option value="tl">Filipino</option>
-          <option value="fi">Suomi — Finnois</option>
-          <option value="fr" selected>Français</option>
-          <option value="fy">Frison occidental</option>
-          <option value="gl">Galicien</option>
-          <option value="ka">ქართული — Géorgien</option>
-          <option value="de">Deutsch — Allemand</option>
-          <option value="el">Ελληνικά — Grec</option>
-          <option value="gu">ગુજરાતી — Gujarati</option>
-          <option value="ht">Kreyòl ayisyen — Créole haïtien</option>
-          <option value="ha">Haoussa</option>
-          <option value="he">עברית — Hébreu</option>
-          <option value="hi">हिन्दी — Hindi</option>
-          <option value="hu">Magyar — Hongrois</option>
-          <option value="is">Íslenska — Islandais</option>
-          <option value="ig">Igbo</option>
-          <option value="id">Bahasa Indonesia — Indonésien</option>
-          <option value="ga">Gaeilge — Irlandais</option>
-          <option value="it">Italiano — Italien</option>
-          <option value="ja">日本語 — Japonais</option>
-          <option value="jw">Javanais</option>
-          <option value="kn">ಕನ್ನಡ — Kannada</option>
-          <option value="kk">Қазақша — Kazakh</option>
-          <option value="km">ខ្មែរ — Khmer</option>
-          <option value="ko">한국어 — Coréen</option>
-          <option value="ku">Kurdî — Kurde</option>
-          <option value="ky">Kirghiz</option>
-          <option value="lo">ລາວ — Laotien</option>
-          <option value="la">Latina — Latin</option>
-          <option value="lv">Latviešu — Letton</option>
-          <option value="lt">Lietuvių — Lituanien</option>
-          <option value="lb">Lëtzebuergesch — Luxembourgeois</option>
-          <option value="mk">Македонски — Macédonien</option>
-          <option value="mg">Malagasy — Malgache</option>
-          <option value="ms">Bahasa Melayu — Malais</option>
-          <option value="ml">മലയാളം — Malayalam</option>
-          <option value="mt">Malti — Maltais</option>
-          <option value="mi">Te Reo Māori — Maori</option>
-          <option value="mr">मराठी — Marathi</option>
-          <option value="mn">Монгол — Mongol</option>
-          <option value="my">မြန်မာဘာသာ — Birman</option>
-          <option value="ne">नेपाली — Népalais</option>
-          <option value="no">Norsk — Norvégien</option>
-          <option value="ny">Chichewa</option>
-          <option value="or">ଓଡ଼ିଆ — Odia</option>
-          <option value="ps">پښتو — Pachto</option>
-          <option value="fa">فارسی — Persan</option>
-          <option value="pl">Polski — Polonais</option>
-          <option value="pt">Português — Portugais</option>
-          <option value="pa">ਪੰਜਾਬੀ — Pendjabi</option>
-          <option value="ro">Română — Roumain</option>
-          <option value="ru">Русский — Russe</option>
-          <option value="sm">Samoan</option>
-          <option value="gd">Gàidhlig — Gaélique écossais</option>
-          <option value="sr">Српски — Serbe</option>
-          <option value="st">Sotho du Sud</option>
-          <option value="sn">Shona</option>
-          <option value="sd">سنڌي — Sindhi</option>
-          <option value="si">සිංහල — Cingalais</option>
-          <option value="sk">Slovenčina — Slovaque</option>
-          <option value="sl">Slovenščina — Slovène</option>
-          <option value="so">Soomaali — Somali</option>
-          <option value="es">Español — Espagnol</option>
-          <option value="su">Sundanais</option>
-          <option value="sw">Kiswahili — Swahili</option>
-          <option value="sv">Svenska — Suédois</option>
-          <option value="tg">Таджикӣ — Tadjik</option>
-          <option value="ta">தமிழ் — Tamoul</option>
-          <option value="tt">Татар — Tatar</option>
-          <option value="te">తెలుగు — Télougou</option>
-          <option value="th">ภาษาไทย — Thaï</option>
-          <option value="tr">Türkçe — Turc</option>
-          <option value="tk">Türkmençe — Turkmène</option>
-          <option value="uk">Українська — Ukrainien</option>
-          <option value="ur">اردو — Ourdou</option>
-          <option value="ug">ئۇيغۇرچە — Ouïghour</option>
-          <option value="uz">O'zbek — Ouzbek</option>
-          <option value="vi">Tiếng Việt — Vietnamien</option>
-          <option value="cy">Cymraeg — Gallois</option>
-          <option value="xh">isiXhosa — Xhosa</option>
-          <option value="yi">ייִדיש — Yiddish</option>
-          <option value="yo">Yorùbá — Yoruba</option>
-          <option value="zu">isiZulu — Zoulou</option>
-        </select>
-      </div>
-      <button class="btn primary" id="btnApplyLang" style="margin-top:8px">🌐 Appliquer la langue</button>
+      </div>`:'<div class="muted" style="font-size:12px">Non supporté par ce navigateur.</div>'}`:""}
     </div>
+
+    <!-- ── CARTE 3 : Sécurité ────────────────────────────────────────────── -->
     <div class="carditem">
-      <h3>Données locales</h3><div class="muted">Réinitialise toutes les données de démo.</div><div class="hr"></div>
+      <h3 style="margin-bottom:16px">🔒 Sécurité</h3>
+
+      ${(isWebAuthnAvailable()&&hasBiometricForUser(state.session.userId))?`
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(50,213,131,.08);border:1px solid rgba(50,213,131,.3);margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px">🔐</span>
+          <div><div style="font-weight:800;font-size:13px">Face ID / Touch ID actif</div><div class="muted" style="font-size:11px">Connexion biométrique configurée</div></div>
+        </div>
+        <button class="btn small ghost" id="btnDisableBio" style="color:var(--danger);border-color:rgba(255,79,109,.3);flex-shrink:0">Désactiver</button>
+      </div>`:""}
+
+      <div class="section-title" style="margin-bottom:8px">🔑 Changer le mot de passe</div>
+      <div class="field"><input type="password" id="newPass1" placeholder="Nouveau mot de passe"/></div>
+      <div class="field" style="margin-top:8px"><input type="password" id="newPass2" placeholder="Confirmer"/></div>
+      <button class="btn primary" id="btnChangePass" style="margin-top:8px">Mettre à jour</button>
+
+      <div class="hr"></div>
+
+      <div class="section-title" style="margin-bottom:8px">☁️ Synchronisation Firebase</div>
+      ${fbSyncEnabled?`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px 12px;border-radius:12px;background:rgba(50,213,131,.08);border:1px solid rgba(50,213,131,.3)">
+        <span style="font-size:16px">✅</span>
+        <div><div style="font-weight:800;font-size:13px;color:#32d583">Firebase connecté</div><div class="muted" style="font-size:11px">Synchro temps réel active</div></div>
+      </div>
+      <button class="btn ghost" id="btnDisableFirebase" style="color:var(--danger);border-color:rgba(255,79,109,.3)">Désactiver la synchro</button>
+      `:`
+      <div class="muted" style="font-size:12px;margin-bottom:10px;line-height:1.6">Connecte Firebase pour synchroniser en temps réel entre tous les appareils.</div>
+      <div class="field"><input id="fb_apiKey" placeholder="API Key (AIzaSy…)"/></div>
+      <div class="field" style="margin-top:8px"><input id="fb_authDomain" placeholder="Auth Domain"/></div>
+      <div class="field" style="margin-top:8px"><input id="fb_dbUrl" placeholder="Database URL"/></div>
+      <div class="field" style="margin-top:8px"><input id="fb_projectId" placeholder="Project ID"/></div>
+      <button class="btn primary" id="btnEnableFirebase" style="margin-top:10px">🔗 Connecter Firebase</button>
+      `}
+    </div>
+
+    <!-- ── CARTE 4 : Données ─────────────────────────────────────────────── -->
+    <div class="carditem">
+      <h3 style="margin-bottom:4px">🗄️ Données locales</h3>
+      <div class="muted" style="margin-bottom:14px;font-size:12px">Réinitialise toutes les données de démo.</div>
       <button class="btn danger" id="btnReset">Réinitialiser la démo</button>
     </div>`;
 }
@@ -4532,6 +4557,34 @@ function attachHandlers(tabId){
         });
         toast("Onglet favori : "+btn.textContent.trim()+" ⭐");
       });
+    });
+
+    document.getElementById("btnEnableFirebase")?.addEventListener("click",()=>{
+      const config = {
+        apiKey:      document.getElementById("fb_apiKey")?.value.trim(),
+        authDomain:  document.getElementById("fb_authDomain")?.value.trim(),
+        databaseURL: document.getElementById("fb_dbUrl")?.value.trim(),
+        projectId:   document.getElementById("fb_projectId")?.value.trim(),
+      };
+      if(!config.apiKey||!config.databaseURL||!config.projectId){
+        toast("Remplis tous les champs Firebase","error"); return;
+      }
+      const ok = initFirebase(config);
+      if(ok){
+        localStorage.setItem(FB_CONFIG_KEY, JSON.stringify(config));
+        toast("Firebase connecté ✅"); renderTab("compte");
+      } else {
+        toast("Erreur de connexion Firebase ❌","error");
+      }
+    });
+
+    document.getElementById("btnDisableFirebase")?.addEventListener("click",()=>{
+      if(!confirm("Désactiver la synchronisation Firebase ?")) return;
+      localStorage.removeItem(FB_CONFIG_KEY);
+      fbSyncEnabled = false;
+      if(fbListener){ fbListener(); fbListener=null; }
+      if(firebaseApp){ firebaseApp.delete().catch(()=>{}); firebaseApp=null; firebaseDb=null; }
+      toast("Synchro désactivée"); renderTab("compte");
     });
 
     document.getElementById("btnSaveAutoLock")?.addEventListener("click",()=>{
