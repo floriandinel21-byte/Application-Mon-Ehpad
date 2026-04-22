@@ -105,6 +105,23 @@ textarea{min-height:92px;resize:vertical}
 .hint{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .pill{ font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); background: rgba(255,255,255,.03); color:var(--muted); cursor:pointer; }
 
+/* ── Bannière hors-ligne ─────────────────────────────────────────────────────*/
+.offline-banner{
+  position:fixed; top:0; left:50%; transform:translateX(-50%);
+  width:min(420px,100%); z-index:500;
+  background:rgba(255,79,109,.95); color:#fff;
+  padding:8px 16px; font-size:12px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  border-bottom:1px solid rgba(255,255,255,.2);
+  box-shadow:0 4px 16px rgba(0,0,0,.3);
+  animation:slideDown .25s ease;
+}
+@keyframes slideDown{ from{transform:translateX(-50%) translateY(-100%)} to{transform:translateX(-50%) translateY(0)} }
+.offline-banner.back-online{
+  background:rgba(50,213,131,.95);
+  animation:slideDown .25s ease;
+}
+
 /* ── Écran de verrouillage ───────────────────────────────────────────────────*/
 .lock-screen{
   position:fixed; inset:0; z-index:999;
@@ -1156,6 +1173,7 @@ const icons = {
   plus:      `<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
   clock:     `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
   chart:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`,
+  megaphone: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 11-5.8-1.6"/></svg>`,
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1853,18 +1871,18 @@ const tplShell=document.getElementById("tpl-shell");
 let navStack=[], currentTab="planning", activeChatPeer="u2", activeChatPeerDir="u1";
 
 const tabsAgent=[
-  {id:"planning",label:"Planning",icon:"calendar"},
-  {id:"echanges",label:"Échanges",icon:"swap"},
-  {id:"messages",label:"Messages",icon:"msg"},
-  {id:"profil",  label:"Profil",  icon:"heart"},
-  {id:"compte",  label:"Compte",  icon:"account"},
+  {id:"planning",  label:"Planning", icon:"calendar"},
+  {id:"echanges",  label:"Échanges", icon:"swap"},
+  {id:"annonces",  label:"Annonces", icon:"megaphone"},
+  {id:"profil",    label:"Profil",   icon:"heart"},
+  {id:"compte",    label:"Compte",   icon:"account"},
 ];
 const tabsDirection=[
-  {id:"dashboard_dir",label:"Accueil", icon:"home"},
-  {id:"validations",  label:"Valider", icon:"check"},
-  {id:"stats_dir",    label:"Stats",   icon:"chart"},
-  {id:"profil_dir",   label:"Profils", icon:"heart"},
-  {id:"compte",       label:"Compte",  icon:"account"},
+  {id:"dashboard_dir",label:"Accueil",  icon:"home"},
+  {id:"validations",  label:"Valider",  icon:"check"},
+  {id:"annonces_dir", label:"Annonces", icon:"megaphone"},
+  {id:"profil_dir",   label:"Profils",  icon:"heart"},
+  {id:"compte",       label:"Compte",   icon:"account"},
 ];
 
 // ── Rendu ─────────────────────────────────────────────────────────────────────
@@ -2116,6 +2134,7 @@ function setupShell(){
       <span>${t.label}</span>
     </div>`).join("");
   tabbar.querySelectorAll(".tab").forEach(el=>el.addEventListener("click",()=>navigate(el.getAttribute("data-tab"))));
+  if(state.session.role==="agent") updateAnnBadge();
   document.getElementById("btnBack").addEventListener("click",()=>{ if(navStack.length){currentTab=navStack.pop();render();}else toast("Vous êtes déjà à la racine 🙂"); });
   document.getElementById("btnAccount").addEventListener("click",()=>navigate("compte"));
 
@@ -2139,9 +2158,12 @@ function setupShell(){
 }
 
 function updateTabBadge(){
-  const n = agentNotifCount();
-  const base = "EHPAD Staff";
-  document.title = n > 0 ? `(${n}) ${base}` : base;
+  if(state.session?.role==="agent") updateAnnBadge();
+  else {
+    const n = agentNotifCount();
+    const base = "EHPAD Staff";
+    document.title = n > 0 ? `(${n}) ${base}` : base;
+  }
 }
 
 function updateNotifBell(){
@@ -2211,7 +2233,7 @@ function navigate(tabId){ if(tabId===currentTab) return; navStack.push(currentTa
 function updateHeader(){
   const u2=state.users.find(u=>u.id===state.session.userId);
   document.getElementById("appSubtitle").textContent=`${u2?.name||""} • ${state.session.role==="direction"?"Direction":"Agent"}`;
-  const map={planning:"Planning",echanges:"Échanges",messages:"Messagerie",profil:"Profil & santé",compte:"Compte",dashboard_dir:"Accueil",validations:"Validations",messages_dir:"Messagerie",profil_dir:"Profils & santé",stats_dir:"📊 Statistiques annuelles"};
+  const map={planning:"Planning",echanges:"Échanges",messages:"Messagerie",annonces:"📣 Annonces",profil:"Profil & santé",compte:"Compte",dashboard_dir:"Accueil",validations:"Validations",messages_dir:"Messagerie",annonces_dir:"📣 Annonces",profil_dir:"Profils & santé",stats_dir:"📊 Statistiques annuelles"};
   document.getElementById("appTitle").textContent=map[currentTab]||"EHPAD";
 }
 function renderTab(tabId){
@@ -2226,6 +2248,7 @@ function renderTab(tabId){
     if(tabId==="planning")  main.innerHTML=viewPlanningAgent();
     else if(tabId==="echanges") main.innerHTML=viewSwapsAgent();
     else if(tabId==="messages") main.innerHTML=viewMessagesAgent();
+    else if(tabId==="annonces") main.innerHTML=viewAnnoncesAgent();
     else if(tabId==="profil")   main.innerHTML=viewProfileAgent();
     else if(tabId==="compte")   main.innerHTML=viewAccount();
   } else {
@@ -2233,6 +2256,7 @@ function renderTab(tabId){
     else if(tabId==="validations")  main.innerHTML=viewValidations();
     else if(tabId==="messages_dir") main.innerHTML=viewMessagesDirection();
     else if(tabId==="stats_dir")    main.innerHTML=viewStatsAnnuel();
+    else if(tabId==="annonces_dir") main.innerHTML=viewAnnoncesDirection();
     else if(tabId==="profil_dir")   main.innerHTML=viewProfilesDirection();
     else if(tabId==="compte")       main.innerHTML=viewAccount();
   }
@@ -2855,6 +2879,98 @@ function leaveCard(r){
     ${r.note?`<div class="muted" style="font-size:12px;margin-top:8px">📝 ${escapeHtml(r.note)}</div>`:""}
     ${r.resolvedAt?`<div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:right">${s.icon} ${r.status==="approved"?"Approuvé":"Refusé"} par ${r.resolvedBy||"la direction"} · ${r.resolvedAt}</div>`:""}
   </div>`;
+}
+
+// ── Fil d'annonces ───────────────────────────────────────────────────────────
+function viewAnnoncesAgent(){
+  const announcements = (state.announcements||[]).slice().reverse();
+  const unread = announcements.filter(a=>!(a.readBy||[]).includes(state.session.userId));
+
+  return `
+    <div class="carditem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0">📣 Annonces</h3>
+        ${unread.length?`<span class="badge warn">${unread.length} nouvelle${unread.length>1?"s":""}</span>`:""}
+      </div>
+      ${announcements.length ? announcements.map(a=>{
+        const isUnread = !(a.readBy||[]).includes(state.session.userId);
+        const urgentStyle = a.urgent ? "background:rgba(255,79,109,.08);border-color:rgba(255,79,109,.3)" : isUnread ? "background:rgba(79,140,255,.08);border-color:rgba(79,140,255,.3)" : "";
+        return `<div class="carditem" style="padding:14px;margin-bottom:8px;${urgentStyle}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:20px">${a.urgent?"🚨":"📢"}</span>
+              <div>
+                <div style="font-weight:850;font-size:14px">${escapeHtml(a.title)}</div>
+                <div class="muted" style="font-size:11px">${a.author} · ${a.createdAt}</div>
+              </div>
+            </div>
+            ${isUnread?`<span class="badge warn" style="flex-shrink:0;font-size:10px">Nouveau</span>`:""}
+          </div>
+          <div style="font-size:13px;line-height:1.5;color:var(--text)">${escapeHtml(a.body)}</div>
+          ${a.category?`<span class="badge" style="margin-top:8px;font-size:10px">🏷️ ${escapeHtml(a.category)}</span>`:""}
+          <button class="btn small ghost ann-read-btn" data-ann="${a.id}" style="margin-top:10px;font-size:11px">
+            ${isUnread?"✓ Marquer comme lu":"✓ Lu"}
+          </button>
+        </div>`;
+      }).join("") : `<div class="chat-empty">${icons.megaphone}<div>Aucune annonce pour l'instant</div></div>`}
+    </div>`;
+}
+
+function viewAnnoncesDirection(){
+  const announcements = (state.announcements||[]).slice().reverse();
+  const agents = state.users.filter(u=>u.role==="agent");
+
+  return `
+    <div class="carditem">
+      <h3>📢 Publier une annonce</h3>
+      <div class="muted" style="margin-bottom:12px">Visible par tous les agents dans leur onglet Annonces.</div>
+      <div class="field"><label>Titre</label><input id="ann_title" placeholder="Ex : Réunion d'équipe vendredi"/></div>
+      <div class="field" style="margin-top:10px"><label>Message</label><textarea id="ann_body" placeholder="Détails de l'annonce…" style="min-height:80px"></textarea></div>
+      <div class="grid2" style="margin-top:10px">
+        <div class="field">
+          <label>Catégorie (optionnel)</label>
+          <select id="ann_category">
+            <option value="">— Aucune —</option>
+            <option value="Organisation">Organisation</option>
+            <option value="Formation">Formation</option>
+            <option value="Sécurité">Sécurité</option>
+            <option value="Planning">Planning</option>
+            <option value="RH">RH</option>
+            <option value="Autre">Autre</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Priorité</label>
+          <select id="ann_urgent">
+            <option value="0">📢 Normale</option>
+            <option value="1">🚨 Urgente</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn primary" id="btnPublishAnn" style="margin-top:10px">📣 Publier l'annonce</button>
+    </div>
+
+    <div class="carditem">
+      <h3>Annonces publiées (${announcements.length})</h3>
+      <div class="hr"></div>
+      ${announcements.length ? announcements.map(a=>{
+        const readCount = (a.readBy||[]).length;
+        const urgentStyle = a.urgent ? "border-left:3px solid var(--danger)" : "";
+        return `<div class="carditem" style="padding:12px;margin-bottom:8px;${urgentStyle}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <div>
+              <div style="font-weight:850;font-size:13px">${a.urgent?"🚨 ":"📢 "}${escapeHtml(a.title)}</div>
+              <div class="muted" style="font-size:11px;margin-top:2px">${a.createdAt}${a.category?" · "+a.category:""}</div>
+              <div style="font-size:12px;margin-top:6px;color:var(--muted)">${escapeHtml(a.body).substring(0,80)}${a.body.length>80?"…":""}</div>
+            </div>
+            <button class="iconbtn ann-del-btn" data-ann="${a.id}" style="width:28px;height:28px;border-radius:8px;color:var(--danger);flex-shrink:0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+            </button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px">👁️ Lu par ${readCount}/${agents.length} agent${agents.length>1?"s":""}</div>
+        </div>`;
+      }).join("") : `<div class="muted">Aucune annonce publiée.</div>`}
+    </div>`;
 }
 
 // ── Messagerie ────────────────────────────────────────────────────────────────
@@ -4352,6 +4468,46 @@ function attachHandlers(tabId){
 
   if(tabId==="validations") attachValidationBtns();
 
+  if(tabId==="annonces"){
+    document.querySelectorAll(".ann-read-btn").forEach(btn=>{
+      btn.addEventListener("click",()=>{
+        const id=btn.getAttribute("data-ann");
+        const ann=(state.announcements||[]).find(a=>a.id===id);
+        if(!ann) return;
+        ann.readBy=ann.readBy||[];
+        if(!ann.readBy.includes(state.session.userId)) ann.readBy.push(state.session.userId);
+        saveState(); updateAnnBadge(); renderTab("annonces");
+      });
+    });
+  }
+
+  if(tabId==="annonces_dir"){
+    document.getElementById("btnPublishAnn")?.addEventListener("click",()=>{
+      const title=(document.getElementById("ann_title")?.value||"").trim();
+      const body=(document.getElementById("ann_body")?.value||"").trim();
+      if(!title||!body){ toast("Remplis le titre et le message","error"); return; }
+      const category=document.getElementById("ann_category")?.value||"";
+      const urgent=document.getElementById("ann_urgent")?.value==="1";
+      state.announcements=state.announcements||[];
+      state.announcements.push({
+        id:"ann_"+Math.random().toString(16).slice(2),
+        title, body, category, urgent,
+        author:me().name,
+        createdAt:new Date().toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"}),
+        readBy:[],
+      });
+      saveState(); toast("Annonce publiée 📣"); renderTab("annonces_dir");
+    });
+    document.querySelectorAll(".ann-del-btn").forEach(btn=>{
+      btn.addEventListener("click",()=>{
+        const id=btn.getAttribute("data-ann");
+        if(!confirm("Supprimer cette annonce ?")) return;
+        state.announcements=(state.announcements||[]).filter(a=>a.id!==id);
+        saveState(); renderTab("annonces_dir");
+      });
+    });
+  }
+
   if(tabId==="compte"){
     document.getElementById("btnLogout")?.addEventListener("click",()=>{ state.session={role:"agent",userId:""}; saveState(); navStack=[]; currentTab="planning"; render(); });
     document.getElementById("btnSwitchUser")?.addEventListener("click",()=>{
@@ -5673,6 +5829,54 @@ applyLang(localStorage.getItem('ehpad_lang')||'');
     if(dx > 0 && idx > 0)             navigate(tabs[idx-1].id); // swipe right → prev
   }, {passive:true});
 })();
+
+// ── Badge annonces ───────────────────────────────────────────────────────────
+function getUnreadAnnCount(){
+  const uid = state.session?.userId;
+  if(!uid) return 0;
+  return (state.announcements||[]).filter(a=>!(a.readBy||[]).includes(uid)).length;
+}
+
+function updateAnnBadge(){
+  // Mettre à jour le badge sur l'onglet Annonces dans la tabbar
+  const tabs = document.querySelectorAll(".tab[data-tab='annonces']");
+  tabs.forEach(t=>{
+    const existing = t.querySelector(".ann-badge");
+    if(existing) existing.remove();
+    const n = getUnreadAnnCount();
+    if(n>0){
+      const badge = document.createElement("span");
+      badge.className="ann-badge";
+      badge.style.cssText="position:absolute;top:4px;right:6px;background:var(--danger);color:#fff;font-size:9px;font-weight:900;border-radius:999px;padding:1px 4px;min-width:15px;text-align:center;line-height:1.5";
+      badge.textContent=n>9?"9+":n;
+      t.appendChild(badge);
+    }
+  });
+  // Aussi dans le titre de la page
+  const base = document.title.replace(/^\(\d+\+?\) /,"");
+  const notifN = agentNotifCount();
+  const annN = getUnreadAnnCount();
+  const total = notifN + annN;
+  document.title = total>0 ? `(${total}) ${base}` : base;
+}
+
+// ── Mode hors-ligne ───────────────────────────────────────────────────────────
+let offlineBanner = null;
+
+function showOfflineBanner(online){
+  if(offlineBanner) offlineBanner.remove();
+  offlineBanner = document.createElement("div");
+  offlineBanner.className = "offline-banner" + (online?" back-online":"");
+  offlineBanner.innerHTML = online
+    ? "✅ Connexion rétablie — données sauvegardées localement"
+    : "⚠️ Hors ligne — l'appli fonctionne en mode local";
+  document.body.appendChild(offlineBanner);
+  if(online) setTimeout(()=>{ offlineBanner?.remove(); offlineBanner=null; }, 3000);
+}
+
+window.addEventListener("offline", ()=> showOfflineBanner(false));
+window.addEventListener("online",  ()=> showOfflineBanner(true));
+if(!navigator.onLine) showOfflineBanner(false);
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 requestNotifPermission();
