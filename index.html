@@ -2904,7 +2904,7 @@ function viewSwapsAgent(){
         <div class="row gap">${filterBtns}</div>
       </div>
       <div class="muted" style="margin-bottom:10px">${allItems.length} demande(s)</div>
-      <div class="cardlist" style="gap:14px">
+      <div style="display:flex;flex-direction:column;gap:14px">
         ${pageItems.length ? pageItems.map(r=>r._kind==="swap"?swapCard(r,u.id):leaveCard(r)).join("") : `<div class="muted">Aucune demande pour l'instant.</div>`}
       </div>
       ${totalPages>1?`<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px">
@@ -4013,7 +4013,39 @@ function viewAccount(){
 
       <div class="section-title" style="margin-bottom:8px">Langue</div>
       <div class="field" style="margin-bottom:8px">
-        <select id="langSelect" style="font-size:13px">${lang_opts}
+        <select id="langSelect" style="font-size:13px">
+          <option value="">🌐 Langue du navigateur (défaut)</option>
+          <option value="af">Afrikaans</option><option value="sq">Albanais</option>
+          <option value="am">Amharique</option><option value="ar">العربية — Arabe</option>
+          <option value="hy">Arménien</option><option value="az">Azerbaïdjanais</option>
+          <option value="eu">Basque</option><option value="be">Biélorusse</option>
+          <option value="bn">বাংলা — Bengali</option><option value="bs">Bosnien</option>
+          <option value="bg">Bulgare</option><option value="ca">Català — Catalan</option>
+          <option value="zh-CN">中文 (简体) — Chinois simplifié</option>
+          <option value="zh-TW">中文 (繁體) — Chinois traditionnel</option>
+          <option value="hr">Hrvatski — Croate</option><option value="cs">Čeština — Tchèque</option>
+          <option value="da">Dansk — Danois</option><option value="nl">Nederlands — Néerlandais</option>
+          <option value="en">English — Anglais</option><option value="eo">Esperanto</option>
+          <option value="et">Eesti — Estonien</option><option value="tl">Filipino</option>
+          <option value="fi">Suomi — Finnois</option><option value="fr" selected>Français</option>
+          <option value="de">Deutsch — Allemand</option><option value="el">Ελληνικά — Grec</option>
+          <option value="he">עברית — Hébreu</option><option value="hi">हिन्दी — Hindi</option>
+          <option value="hu">Magyar — Hongrois</option><option value="id">Bahasa Indonesia</option>
+          <option value="ga">Gaeilge — Irlandais</option><option value="it">Italiano — Italien</option>
+          <option value="ja">日本語 — Japonais</option><option value="ko">한국어 — Coréen</option>
+          <option value="lv">Latviešu — Letton</option><option value="lt">Lietuvių — Lituanien</option>
+          <option value="ms">Bahasa Melayu — Malais</option><option value="mt">Malti — Maltais</option>
+          <option value="no">Norsk — Norvégien</option><option value="fa">فارسی — Persan</option>
+          <option value="pl">Polski — Polonais</option><option value="pt">Português — Portugais</option>
+          <option value="ro">Română — Roumain</option><option value="ru">Русский — Russe</option>
+          <option value="sr">Српски — Serbe</option><option value="sk">Slovenčina — Slovaque</option>
+          <option value="sl">Slovenščina — Slovène</option><option value="es">Español — Espagnol</option>
+          <option value="sw">Kiswahili — Swahili</option><option value="sv">Svenska — Suédois</option>
+          <option value="ta">தமிழ் — Tamoul</option><option value="th">ภาษาไทย — Thaï</option>
+          <option value="tr">Türkçe — Turc</option><option value="uk">Українська — Ukrainien</option>
+          <option value="ur">اردو — Ourdou</option><option value="vi">Tiếng Việt — Vietnamien</option>
+          <option value="cy">Cymraeg — Gallois</option><option value="zu">isiZulu — Zoulou</option>
+        </select>
       </div>
       <button class="btn primary" id="btnApplyLang" style="margin-bottom:16px">🌐 Appliquer</button>
 
